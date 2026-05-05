@@ -1,0 +1,250 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tickets
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d tickets"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  db-migrate:
+    image: postgres:17-alpine
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    volumes:
+      - ./services/ticket_creation/migrations:/migrations:ro
+    command:
+      [
+        "sh",
+        "-c",
+        "psql -h postgres -U postgres -d tickets -f /migrations/001_create_tickets.up.sql",
+      ]
+
+  transcription:
+    build:
+      context: ./services/transcription
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./configs/transcription.env
+    environment:
+      WHISPERX_ENABLE_DIARIZATION: "1"
+      HF_TOKEN: ${HF_TOKEN:-}
+      WHISPERX_MIN_SPEAKERS: "2"
+      WHISPERX_MAX_SPEAKERS: "2"
+      HTTP_HOST: 0.0.0.0
+      TRANSCRIPTION_HTTP_PORT: 8083
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      FFMPEG_BIN: ffmpeg
+      FFPROBE_BIN: ffprobe
+    gpus: all
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8083/health', timeout=2).read()\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 120s
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
+  router:
+    build:
+      context: ./services/router
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./configs/routing.env
+    environment:
+      ROUTER_HTTP_PORT: 8081
+      ROUTER_INTENTS_PATH: /shared-config/routing_intents.json
+      ROUTER_FEEDBACK_PATH: /shared-config/routing_feedback.jsonl
+      ROUTER_BASE_DATASET_PATH: ""
+      ROUTER_INCLUDE_INTENT_EXAMPLES: "1"
+      ROUTER_TUNED_MODEL_PATH: /shared-config/router_finetuned_model/router_tuned_head.pt
+      ROUTER_MODEL_NAME: ai-forever/ruRoberta-large
+      ROUTER_MIN_CONFIDENCE: "0.50"
+      ROUTER_FINETUNED_ENABLED: "1"
+      ROUTER_FINETUNED_MODEL_PATH: /shared-config/router_finetuned_model
+      ROUTER_FINETUNED_LR: 2e-5
+      ROUTER_FINETUNED_EPOCHS: 50
+      ROUTER_FINETUNED_BATCH_SIZE: 8
+      ROUTER_FINETUNED_MAX_LENGTH: 512
+      ROUTER_FINETUNED_WEIGHT_DECAY: 0.01
+      ROUTER_NLP_TEXT_MODE: plain
+      ROUTER_TRAIN_EPOCHS: 50
+      ROUTER_TRAIN_BATCH_SIZE: 16
+      ROUTER_TRAIN_LR: 2e-5
+      ROUTER_TRAIN_VAL_RATIO: 0.2
+      ROUTER_TRAIN_SEED: 42
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
+      - ./configs:/shared-config
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=2).read()\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  entity_extraction:
+    build:
+      context: ./services/entity_extraction
+      dockerfile: Dockerfile
+      network: host
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-http://127.0.0.1:7897}
+        HTTPS_PROXY: ${HTTPS_PROXY:-http://127.0.0.1:7897}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1}
+    restart: unless-stopped
+    env_file:
+      - ./configs/entity.env
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY:-http://127.0.0.1:7897}
+      HTTPS_PROXY: ${HTTPS_PROXY:-http://127.0.0.1:7897}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1}
+      http_proxy: ${HTTP_PROXY:-http://127.0.0.1:7897}
+      https_proxy: ${HTTPS_PROXY:-http://127.0.0.1:7897}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1}
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=2).read()\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  ollama:
+    image: ollama/ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    gpus: all
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  ticket_creation:
+    build:
+      context: ./services/ticket_creation
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./configs/ticket.env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/tickets?sslmode=disable
+      PYTHON_NER_SERVICE_URL: http://entity_extraction:5001
+      LLM_REQUEST_TIMEOUT_SECONDS: ${LLM_REQUEST_TIMEOUT_SECONDS:-180}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3:4b}
+      OLLAMA_TEMPERATURE: ${OLLAMA_TEMPERATURE:-0}
+      OLLAMA_NUM_PREDICT: ${OLLAMA_NUM_PREDICT:-128}
+      SERVER_PORT: 8080
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      entity_extraction:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  orchestrator:
+    build:
+      context: ./services/orchestrator
+      dockerfile: dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./configs/orchestrator.env
+    environment:
+      HTTP_PORT: 8000
+      TRANSCRIPTION_SERVICE_URL: http://transcription:8083
+      ROUTING_SERVICE_URL: http://router:8081
+      TICKET_SERVICE_URL: http://ticket_creation:8080
+      TICKET_REQUEST_TIMEOUT_SECONDS: ${TICKET_REQUEST_TIMEOUT_SECONDS:-300}
+      ENTITY_SERVICE_URL: http://entity_extraction:5001
+      ROUTING_REVIEW_CONFIDENCE_THRESHOLD: "0.80"
+      ROUTING_INTENTS_PATH: /shared-config/routing_intents.json
+      ROUTING_GROUPS_PATH: /shared-config/routing_groups.json
+      ROUTING_FEEDBACK_PATH: /shared-config/routing_feedback.jsonl
+      ROUTING_AUTO_LEARN: "1"
+      ROUTING_AUTO_LEARN_LIMIT: "50"
+      ROUTER_ADMIN_URL: http://router:8081
+      ROUTER_ADMIN_TIMEOUT_SECONDS: "600"
+      ORCH_DELETE_UPLOADED_AUDIO_AFTER_PROCESS: "1"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/tickets?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32chars}
+      JWT_EXPIRY_HOURS: "24"
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      transcription:
+        condition: service_healthy
+      router:
+        condition: service_healthy
+      ticket_creation:
+        condition: service_started
+      entity_extraction:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./configs:/shared-config
+
+volumes:
+  postgres_data:
+  huggingface_cache:
+  torch_cache:
+  ollama_data:

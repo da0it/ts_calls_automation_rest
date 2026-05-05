@@ -1,0 +1,63 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# ==========================
+# Go
+# ==========================
+.gocache/
+.bin/
+**/gen/*.pb.go
+
+# Generated gRPC stubs
+**/grpc_gen/
+
+# ==========================
+# Runtime / Logs
+# ==========================
+.run/
+exports/
+services/orchestrator/uploads/
+functional_test_report.json
+reports/
+
+# ==========================
+# Environment & Secrets
+# ==========================
+.env
+configs/*.env
+!configs/*.env.example
+
+# For feedback safety
+configs/
+
+# ==========================
+# Docker
+# ==========================
+postgres_data/
+
+# ==========================
+# macOS
+# ==========================
+.DS_Store
+
+# ==========================
+# IDE
+# ==========================
+.idea/
+.vscode/
+*.swp
+*.swo
+
+.swift-module-cache/
+
+nonspam_classification_eval_clean_semicolon_5class.csv

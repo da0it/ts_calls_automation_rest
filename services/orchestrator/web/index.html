@@ -1,0 +1,2575 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Call Routing Console</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+    :root {
+      --bg-0: #f4f7fb;
+      --bg-1: #e8eef8;
+      --surface: #ffffff;
+      --surface-2: #f7f9fd;
+      --text: #14213d;
+      --muted: #60718d;
+      --line: #d7e0ef;
+      --accent: #1565d8;
+      --accent-2: #0b4eb2;
+      --ok: #0f8f5a;
+      --warn: #c0720a;
+      --bad: #b43333;
+      --shadow: 0 16px 30px rgba(24, 52, 91, 0.12);
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'IBM Plex Sans', sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1300px 700px at 80% -10%, #d7e8ff 0%, transparent 60%),
+        radial-gradient(1000px 600px at -5% 100%, #dce7f8 0%, transparent 60%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1));
+    }
+
+    .page {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+      padding: 20px;
+      gap: 16px;
+    }
+
+    .topbar {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .title {
+      margin: 0;
+      font: 700 24px/1.1 'Space Grotesk', sans-serif;
+      letter-spacing: 0.2px;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .upload-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .topbar-right {
+      display: grid;
+      gap: 10px;
+      justify-items: end;
+    }
+
+    .user-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .user-pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #f7faff;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .role-badge {
+      border: 1px solid #b4c9ee;
+      border-radius: 999px;
+      padding: 2px 8px;
+      color: var(--accent-2);
+      background: #eef5ff;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: .3px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+    }
+
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+
+    .btn-primary {
+      color: #fff;
+      background: linear-gradient(130deg, var(--accent), var(--accent-2));
+      box-shadow: 0 10px 20px rgba(21, 101, 216, 0.25);
+    }
+
+    .btn-ghost {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .btn-ok { background: #def6ea; color: var(--ok); border: 1px solid #b7e7cb; }
+    .btn-bad { background: #fde7e7; color: var(--bad); border: 1px solid #f3c4c4; }
+
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 16px;
+      min-height: 0;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .panel-head {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, #ffffff, #f5f8fd);
+    }
+
+    .panel-title {
+      margin: 0;
+      font: 700 15px/1.2 'Space Grotesk', sans-serif;
+      letter-spacing: .2px;
+    }
+
+    .calls-list {
+      list-style: none;
+      margin: 0;
+      padding: 8px;
+      height: calc(100vh - 210px);
+      overflow: auto;
+    }
+
+    .call-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+      background: #fff;
+    }
+
+    .call-item:hover { border-color: #b4c9ee; background: #f7fbff; }
+    .call-item.active { border-color: var(--accent); background: #eef5ff; }
+
+    .call-main {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .call-side {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .call-name {
+      font-weight: 600;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .call-time {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .call-delete-btn {
+      padding: 2px 6px;
+      min-height: 20px;
+      border-radius: 999px;
+      line-height: 1;
+      font-size: 11px;
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .call-delete-btn:hover:not(:disabled) {
+      color: var(--bad);
+      background: #fff4f4;
+      border-color: #f3c4c4;
+    }
+
+    .chips {
+      margin-top: 7px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      font-size: 11px;
+      border-radius: 999px;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: #f8fafd;
+    }
+
+    .chip-ok { color: var(--ok); border-color: #c5ead6; background: #ecf9f1; }
+    .chip-bad { color: var(--bad); border-color: #f1c9c9; background: #fdeeee; }
+    .chip-warn { color: var(--warn); border-color: #f3d8ae; background: #fff3df; }
+    .sla-value-ok { color: var(--ok); }
+    .sla-value-warn { color: var(--warn); }
+    .sla-value-bad { color: var(--bad); }
+
+    .workspace {
+      height: calc(100vh - 210px);
+      overflow: auto;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font: 700 14px/1.2 'Space Grotesk', sans-serif;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
+      gap: 8px;
+    }
+
+    .meta .kv {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #f9fbff;
+    }
+
+    .k { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .v { font-weight: 600; font-size: 13px; word-break: break-word; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .row {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    label { font-size: 12px; color: var(--muted); }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 9px 10px;
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+
+    textarea { min-height: 80px; resize: vertical; }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .toolbar.hidden { display: none; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 8px 12px;
+      font: 600 13px/1.1 'IBM Plex Sans', sans-serif;
+      cursor: pointer;
+      transition: background .12s ease, border-color .12s ease, transform .12s ease;
+    }
+
+    .tab-btn:hover { transform: translateY(-1px); }
+    .tab-btn.active {
+      border-color: #b4c9ee;
+      background: #eef5ff;
+      color: var(--accent-2);
+    }
+
+    .segments {
+      max-height: 320px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fdfefe;
+    }
+
+    .segment {
+      padding: 10px;
+      border-bottom: 1px solid #ecf1fa;
+      display: grid;
+      gap: 4px;
+    }
+
+    .segment:last-child { border-bottom: none; }
+
+    .segment-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: var(--muted);
+      flex-wrap: wrap;
+    }
+
+    .segment-text { font-size: 14px; }
+
+    .raw {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 260px;
+      overflow: auto;
+      background: #0f172a;
+      color: #d3e1ff;
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .catalog-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .catalog-list {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fafcff;
+      max-height: 220px;
+      overflow: auto;
+      padding: 8px;
+    }
+
+    .catalog-item {
+      border: 1px solid #e2eaf7;
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: #fff;
+    }
+
+    .catalog-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .catalog-item-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .catalog-item-sub {
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-word;
+    }
+
+    .btn-mini {
+      padding: 6px 8px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    .collapsible-form.hidden {
+      display: none;
+    }
+
+    .banner {
+      font-size: 13px;
+      border-radius: 10px;
+      padding: 9px 10px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .help-note {
+      margin-top: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 9px;
+      background: #f9fbff;
+    }
+
+    .banner.show { display: block; }
+    .banner.ok { background: #e9f9ef; border: 1px solid #bfe8cd; color: #0f7f4f; }
+    .banner.error { background: #fdeeee; border: 1px solid #f1c8c8; color: #9f2e2e; }
+
+    .empty {
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      padding: 30px 20px;
+      border: 1px dashed var(--line);
+      border-radius: 10px;
+      background: #f9fbff;
+    }
+
+    .hidden { display: none !important; }
+
+    .auth-screen {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .auth-card {
+      width: min(440px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .auth-title {
+      margin: 0;
+      font: 700 25px/1.1 'Space Grotesk', sans-serif;
+    }
+
+    .auth-subtitle {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .auth-switch {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .auth-hint {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1024px) {
+      .layout { grid-template-columns: 1fr; }
+      .calls-list, .workspace { height: auto; max-height: none; }
+      .meta { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
+      .grid-2 { grid-template-columns: 1fr; }
+      .catalog-grid { grid-template-columns: 1fr; }
+      .upload-row { justify-content: flex-start; }
+      .topbar { grid-template-columns: 1fr; }
+      .topbar-right { justify-items: stretch; }
+      .user-row { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <section id="login-screen" class="auth-screen hidden">
+    <form id="login-form" class="auth-card">
+      <h1 class="auth-title">Call Routing Console</h1>
+      <p id="auth-subtitle" class="auth-subtitle">Sign in to process and review calls.</p>
+      <div class="auth-switch" role="tablist" aria-label="Auth mode">
+        <button id="auth-mode-login-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">Sign in</button>
+        <button id="auth-mode-register-btn" class="tab-btn" type="button" role="tab" aria-selected="false">Register</button>
+      </div>
+      <div class="row">
+        <label for="login-username">Username</label>
+        <input id="login-username" autocomplete="username" required />
+      </div>
+      <div class="row">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" required />
+      </div>
+      <p id="auth-hint" class="auth-hint">Use your existing account credentials.</p>
+      <button id="login-btn" class="btn btn-primary" type="submit">Sign in</button>
+      <div id="login-banner" class="banner"></div>
+    </form>
+  </section>
+
+  <div id="app-shell" class="page hidden">
+    <header class="topbar">
+      <div>
+        <h1 class="title">Call Routing Console</h1>
+        <p class="subtitle">Upload calls, review AI routing, accept or override categories, and export reviewed result.</p>
+      </div>
+      <div class="topbar-right">
+        <div class="user-row">
+          <div id="user-pill" class="user-pill"></div>
+          <button id="logout-btn" class="btn btn-ghost" type="button">Logout</button>
+        </div>
+        <form id="process-form" class="upload-row">
+          <input id="audio-file" type="file" accept=".mp3,.wav,.m4a,.flac,.ogg,audio/*" />
+          <button id="process-btn" class="btn btn-primary" type="submit">Process Call</button>
+        </form>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title">Processed Calls</h2>
+          <button id="clear-btn" class="btn btn-ghost" type="button">Clear All</button>
+        </div>
+        <ul id="calls-list" class="calls-list"></ul>
+      </aside>
+
+      <main class="panel">
+        <div class="panel-head">
+          <div class="tabs" role="tablist" aria-label="Workspace tabs">
+            <button id="tab-review-btn" class="tab-btn active" type="button" role="tab" aria-selected="true">Call Review</button>
+            <button id="tab-settings-btn" class="tab-btn" type="button" role="tab" aria-selected="false">Settings</button>
+          </div>
+          <div id="review-toolbar" class="toolbar">
+            <button id="accept-btn" class="btn btn-ok" type="button">Accept AI</button>
+            <button id="reject-btn" class="btn btn-bad" type="button">Reject AI</button>
+            <button id="save-btn" class="btn btn-primary" type="button">Save Decision</button>
+            <button id="export-btn" class="btn btn-ghost" type="button">Export JSON</button>
+            <button id="copy-btn" class="btn btn-ghost" type="button">Copy JSON</button>
+          </div>
+        </div>
+
+        <div id="local-banner" class="banner"></div>
+        <div class="workspace" id="workspace"></div>
+      </main>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'ts_calls_review_state_v1';
+    const AUTH_STORAGE_KEY = 'ts_calls_auth_state_v1';
+    const PRIORITY_PRESETS = ['low', 'medium', 'high', 'critical'];
+    const ERROR_TYPE_PRESETS = [
+      { value: 'none', label: 'No error (AI correct)' },
+      { value: 'wrong_intent', label: 'Wrong intent' },
+      { value: 'wrong_group', label: 'Wrong group' },
+      { value: 'wrong_priority', label: 'Wrong priority' },
+      { value: 'partial_transcript', label: 'Transcript is partial/incorrect' },
+      { value: 'low_confidence', label: 'Low confidence classification' },
+      { value: 'missing_context', label: 'Missing context in call' },
+      { value: 'other', label: 'Other' }
+    ];
+
+    const FALLBACK_CATALOG = {
+      groups: [
+        { id: 'consulting', title: 'Consulting', description: 'Консультационные обращения и предварительные запросы клиентов.' },
+        { id: 'cooperation_department', title: 'Cooperation Department', description: 'Партнерство, конференции и внешние деловые предложения.' },
+        { id: 'education_center', title: 'Education Center', description: 'Обучение, курсы, программы и учебные мероприятия.' },
+        { id: 'sales', title: 'Sales', description: 'Продажи, лицензии, подключение услуг и коммерческие заявки.' },
+        { id: 'support', title: 'Support', description: 'Поддержка, доступ в портал и первичная обработка неясных обращений.' }
+      ],
+      intents: [
+        { id: 'spam.call', title: 'Спам', default_group: 'support', priority: 'high', examples: ['это спам'] },
+        { id: 'consulting', title: 'Консультация', default_group: 'consulting', priority: 'medium', examples: ['нужна консультация'] },
+        { id: 'cooperation', title: 'Сотрудничество', default_group: 'cooperation_department', priority: 'medium', examples: ['приглашаем на конференцию'] },
+        { id: 'courses', title: 'Обучение', default_group: 'education_center', priority: 'medium', examples: ['хочу записаться на курс'] },
+        { id: 'license', title: 'Продажа / лицензия', default_group: 'sales', priority: 'high', examples: ['хочу купить услугу'] },
+        { id: 'portal_access', title: 'Доступ в портал', default_group: 'support', priority: 'high', examples: ['не могу войти в личный кабинет'] },
+        { id: 'misc.triage', title: 'Неопределенное обращение', default_group: 'support', priority: 'medium', examples: ['есть вопрос'] }
+      ]
+    };
+
+    const state = {
+      calls: [],
+      selectedCallId: null,
+      processing: false,
+      banner: null,
+      catalog: cloneCatalog(FALLBACK_CATALOG),
+      routingModelStatus: null,
+      activeTab: 'review',
+      loginBanner: null,
+      authBusy: false,
+      authMode: 'login',
+      routingReviewBusy: false,
+      users: [],
+      auth: {
+        token: '',
+        user: null
+      },
+      appSettings: {
+        slaMinutes: 15,
+        updatedAt: ''
+      },
+      slaSaveBusy: false,
+      slaTickerStarted: false
+    };
+
+    const el = {
+      loginScreen: document.getElementById('login-screen'),
+      appShell: document.getElementById('app-shell'),
+      loginForm: document.getElementById('login-form'),
+      authSubtitle: document.getElementById('auth-subtitle'),
+      authHint: document.getElementById('auth-hint'),
+      authModeLoginBtn: document.getElementById('auth-mode-login-btn'),
+      authModeRegisterBtn: document.getElementById('auth-mode-register-btn'),
+      loginUsername: document.getElementById('login-username'),
+      loginPassword: document.getElementById('login-password'),
+      loginBtn: document.getElementById('login-btn'),
+      loginBanner: document.getElementById('login-banner'),
+      userPill: document.getElementById('user-pill'),
+      logoutBtn: document.getElementById('logout-btn'),
+      form: document.getElementById('process-form'),
+      file: document.getElementById('audio-file'),
+      processBtn: document.getElementById('process-btn'),
+      callsList: document.getElementById('calls-list'),
+      workspace: document.getElementById('workspace'),
+      clearBtn: document.getElementById('clear-btn'),
+      acceptBtn: document.getElementById('accept-btn'),
+      rejectBtn: document.getElementById('reject-btn'),
+      saveBtn: document.getElementById('save-btn'),
+      exportBtn: document.getElementById('export-btn'),
+      copyBtn: document.getElementById('copy-btn'),
+      tabReviewBtn: document.getElementById('tab-review-btn'),
+      tabSettingsBtn: document.getElementById('tab-settings-btn'),
+      reviewToolbar: document.getElementById('review-toolbar')
+    };
+
+    async function init() {
+      load();
+      loadAuth();
+      bindEvents();
+      startSlaTicker();
+      if (state.auth.token) {
+        const restored = await restoreSession();
+        if (restored) {
+          await loadAppSettings(true);
+          await loadRoutingCatalog(true);
+          await loadRoutingModelStatus(true);
+          await loadCalls(true);
+          if (isAdmin()) {
+            await loadUsers(true);
+          }
+        }
+      }
+      render();
+    }
+
+    function bindEvents() {
+      el.loginForm.addEventListener('submit', onLoginSubmit);
+      el.authModeLoginBtn.addEventListener('click', () => setAuthMode('login'));
+      el.authModeRegisterBtn.addEventListener('click', () => setAuthMode('register'));
+      el.logoutBtn.addEventListener('click', onLogoutClick);
+      el.form.addEventListener('submit', onProcessSubmit);
+      el.clearBtn.addEventListener('click', clearAllCalls);
+      el.acceptBtn.addEventListener('click', onAcceptClick);
+      el.rejectBtn.addEventListener('click', onRejectClick);
+      el.saveBtn.addEventListener('click', () => saveDecision());
+      el.exportBtn.addEventListener('click', exportCurrentCall);
+      el.copyBtn.addEventListener('click', copyCurrentCall);
+      el.tabReviewBtn.addEventListener('click', () => setActiveTab('review'));
+      el.tabSettingsBtn.addEventListener('click', () => setActiveTab('settings'));
+    }
+
+    function setActiveTab(tab) {
+      if (tab !== 'review' && tab !== 'settings') return;
+      if (tab === 'settings' && !isAdmin()) return;
+      state.activeTab = tab;
+      if (tab === 'settings' && isAdmin() && state.users.length === 0) {
+        loadUsers(true).then(render);
+      }
+      render();
+    }
+
+    function setAuthMode(mode) {
+      if (mode !== 'login' && mode !== 'register') return;
+      state.authMode = mode;
+      state.loginBanner = null;
+      renderAuth();
+    }
+
+    function isAuthenticated() {
+      return Boolean(state.auth && state.auth.token && state.auth.user);
+    }
+
+    function isAdmin() {
+      return Boolean(state.auth && state.auth.user && state.auth.user.role === 'admin');
+    }
+
+    function load() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        state.selectedCallId = parsed && parsed.selectedCallId ? parsed.selectedCallId : null;
+      } catch (_err) {
+        state.selectedCallId = null;
+      }
+    }
+
+    function loadAuth() {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) return;
+      try {
+        const parsed = JSON.parse(raw);
+        state.auth.token = parsed && typeof parsed.token === 'string' ? parsed.token : '';
+        state.auth.user = parsed && parsed.user && typeof parsed.user === 'object' ? parsed.user : null;
+      } catch (_err) {
+        state.auth.token = '';
+        state.auth.user = null;
+      }
+    }
+
+    function persist() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        selectedCallId: state.selectedCallId
+      }));
+    }
+
+    function persistAuth() {
+      if (!state.auth.token || !state.auth.user) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return;
+      }
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({
+        token: state.auth.token,
+        user: state.auth.user
+      }));
+    }
+
+    function clearAuth() {
+      state.auth.token = '';
+      state.auth.user = null;
+      state.users = [];
+      state.calls = [];
+      state.selectedCallId = null;
+      persist();
+      persistAuth();
+    }
+
+    async function restoreSession() {
+      try {
+        const me = await apiJson('/api/v1/auth/me', null, true, true);
+        state.auth.user = me;
+        persistAuth();
+        return true;
+      } catch (_err) {
+        clearAuth();
+        return false;
+      }
+    }
+
+    async function onLoginSubmit(event) {
+      event.preventDefault();
+      const username = el.loginUsername.value.trim();
+      const password = el.loginPassword.value;
+      if (!username || !password) {
+        setLoginBanner('Username and password are required.', 'error');
+        return;
+      }
+
+      state.authBusy = true;
+      renderAuth();
+
+      try {
+        if (state.authMode === 'register') {
+          await apiJson('/api/v1/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          }, false);
+          setAuthMode('login');
+          setLoginBanner('Registration submitted. Wait for admin approval before sign in.', 'ok');
+          el.loginPassword.value = '';
+          return;
+        }
+
+        const payload = await apiJson('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        }, false);
+
+        if (!payload || !payload.token || !payload.user) {
+          throw new Error('Invalid login response');
+        }
+
+        state.auth.token = payload.token;
+        state.auth.user = payload.user;
+        persistAuth();
+        state.loginBanner = null;
+        el.loginPassword.value = '';
+
+        await loadAppSettings(true);
+        await loadRoutingCatalog(true);
+        await loadRoutingModelStatus(true);
+        await loadCalls(true);
+        if (isAdmin()) {
+          await loadUsers(true);
+        } else {
+          state.users = [];
+          state.activeTab = 'review';
+        }
+        setBanner('Signed in as ' + state.auth.user.username + '.', 'ok');
+      } catch (err) {
+        setLoginBanner(String(err.message || err), 'error');
+      } finally {
+        state.authBusy = false;
+        render();
+      }
+    }
+
+    function onLogoutClick() {
+      clearAuth();
+      state.processing = false;
+      state.activeTab = 'review';
+      state.authMode = 'login';
+      state.loginBanner = { message: 'Signed out.', type: 'ok' };
+      render();
+    }
+
+    function setLoginBanner(message, type) {
+      state.loginBanner = message ? { message, type: type === 'error' ? 'error' : 'ok' } : null;
+      renderLoginBanner();
+    }
+
+    function handleUnauthorized(silent) {
+      clearAuth();
+      state.processing = false;
+      state.activeTab = 'review';
+      state.authMode = 'login';
+      if (!silent) {
+        state.loginBanner = { message: 'Session expired. Sign in again.', type: 'error' };
+      }
+      render();
+    }
+
+    function normalizeSlaMinutes(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return 15;
+      return Math.min(1440, Math.max(1, Math.round(numeric)));
+    }
+
+    function getCallById(callId) {
+      return state.calls.find((call) => call.id === callId) || null;
+    }
+
+    function ensureCallSla(call) {
+      if (!call || typeof call !== 'object') return null;
+      const startedAt = String(
+        call.sla && call.sla.startedAt
+          ? call.sla.startedAt
+          : (call.createdAt || new Date().toISOString())
+      );
+      const limitMinutes = normalizeSlaMinutes(call.sla && call.sla.limitMinutes);
+      let stoppedAt = String(call.sla && call.sla.stoppedAt || '').trim();
+      if (!stoppedAt && call.review && call.review.completedAt) {
+        stoppedAt = String(call.review.completedAt);
+      }
+      if (!stoppedAt) {
+        stoppedAt = getAutomaticSlaStopTime(call);
+      }
+      if (!stoppedAt && call.status === 'spam_blocked') {
+        stoppedAt = String(call.createdAt || '');
+      }
+      call.sla = {
+        limitMinutes,
+        startedAt,
+        stoppedAt
+      };
+      if (call.review && stoppedAt && !call.review.completedAt) {
+        call.review.completedAt = stoppedAt;
+      }
+      return call.sla;
+    }
+
+    function getSlaSnapshot(call, now) {
+      const currentTime = now instanceof Date ? now : new Date();
+      const sla = ensureCallSla(call);
+      if (!sla) {
+        return {
+          active: false,
+          limitMinutes: 15,
+          remainingMs: 15 * 60 * 1000,
+          tone: 'ok'
+        };
+      }
+
+      const startedAtMs = Date.parse(sla.startedAt || call.createdAt || currentTime.toISOString());
+      const stoppedAtMs = sla.stoppedAt ? Date.parse(sla.stoppedAt) : NaN;
+      const limitMs = normalizeSlaMinutes(sla.limitMinutes) * 60 * 1000;
+      const active = !sla.stoppedAt;
+      const effectiveEndMs = active
+        ? currentTime.getTime()
+        : (Number.isFinite(stoppedAtMs) ? stoppedAtMs : currentTime.getTime());
+      const safeStartedAtMs = Number.isFinite(startedAtMs) ? startedAtMs : currentTime.getTime();
+      const elapsedMs = Math.max(0, effectiveEndMs - safeStartedAtMs);
+      const remainingMs = limitMs - elapsedMs;
+
+      let tone = 'ok';
+      if (remainingMs < 0) {
+        tone = 'bad';
+      } else if (remainingMs <= Math.min(5 * 60 * 1000, limitMs / 3)) {
+        tone = 'warn';
+      }
+
+      return {
+        active,
+        limitMinutes: normalizeSlaMinutes(sla.limitMinutes),
+        remainingMs,
+        tone
+      };
+    }
+
+    function normalizeTimestamp(value) {
+      const text = String(value || '').trim();
+      if (!text) return '';
+      return Number.isNaN(Date.parse(text)) ? '' : text;
+    }
+
+    function hasCreatedTicket(ticket) {
+      return Boolean(
+        ticket &&
+        (
+          ticket.ticketId ||
+          ticket.externalId ||
+          ticket.url ||
+          ticket.system ||
+          ticket.createdAt
+        )
+      );
+    }
+
+    function getAutomaticSlaStopTime(call) {
+      if (!call || typeof call !== 'object') return '';
+      if (call.status === 'spam_blocked') {
+        return normalizeTimestamp(call.processedAt || call.createdAt);
+      }
+      if (!hasCreatedTicket(call.ticket)) {
+        return '';
+      }
+      return normalizeTimestamp(call.ticket.createdAt || call.processedAt || (call.raw && call.raw.processed_at));
+    }
+
+    function formatTimerDuration(milliseconds) {
+      const totalSeconds = Math.max(0, Math.floor(Math.abs(Number(milliseconds) || 0) / 1000));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      }
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function getSlaDisplay(call, now) {
+      const snapshot = getSlaSnapshot(call, now);
+      const timerText = formatTimerDuration(snapshot.remainingMs);
+
+      if (snapshot.remainingMs >= 0) {
+        return {
+          shortText: snapshot.active ? `SLA ${timerText} left` : `SLA ${timerText} frozen`,
+          longText: snapshot.active
+            ? `${snapshot.limitMinutes} min target • ${timerText} left`
+            : `${snapshot.limitMinutes} min target • frozen at ${timerText} left`,
+          tone: snapshot.tone
+        };
+      }
+
+      return {
+        shortText: snapshot.active ? `SLA +${timerText}` : `SLA +${timerText} frozen`,
+        longText: snapshot.active
+          ? `${snapshot.limitMinutes} min target • overdue by ${timerText}`
+          : `${snapshot.limitMinutes} min target • stopped overdue by ${timerText}`,
+        tone: snapshot.tone
+      };
+    }
+
+    function renderSlaChip(call) {
+      const display = getSlaDisplay(call, new Date());
+      const toneClass = display.tone === 'bad' ? 'chip-bad' : (display.tone === 'warn' ? 'chip-warn' : 'chip-ok');
+      return `<span class="chip js-sla-chip ${toneClass}" data-call-id="${escapeAttr(call.id)}">${escapeHtml(display.shortText)}</span>`;
+    }
+
+    function applySlaDisplay(node, text, tone, type) {
+      if (!node) return;
+      node.textContent = text;
+      node.classList.remove('chip-ok', 'chip-warn', 'chip-bad', 'sla-value-ok', 'sla-value-warn', 'sla-value-bad');
+      if (type === 'chip') {
+        node.classList.add(tone === 'bad' ? 'chip-bad' : (tone === 'warn' ? 'chip-warn' : 'chip-ok'));
+      } else {
+        node.classList.add(tone === 'bad' ? 'sla-value-bad' : (tone === 'warn' ? 'sla-value-warn' : 'sla-value-ok'));
+      }
+    }
+
+    function refreshSlaDisplays() {
+      if (!isAuthenticated()) return;
+      const now = new Date();
+
+      document.querySelectorAll('.js-sla-chip[data-call-id]').forEach((node) => {
+        const call = getCallById(node.dataset.callId);
+        if (!call) return;
+        const display = getSlaDisplay(call, now);
+        applySlaDisplay(node, display.shortText, display.tone, 'chip');
+      });
+
+      document.querySelectorAll('.js-sla-summary[data-call-id]').forEach((node) => {
+        const call = getCallById(node.dataset.callId);
+        if (!call) return;
+        const display = getSlaDisplay(call, now);
+        applySlaDisplay(node, display.longText, display.tone, 'summary');
+      });
+    }
+
+    function startSlaTicker() {
+      if (state.slaTickerStarted) return;
+      state.slaTickerStarted = true;
+      refreshSlaDisplays();
+      window.setInterval(() => {
+        refreshSlaDisplays();
+      }, 1000);
+    }
+
+    function normalizeSegmentRole(role) {
+      const raw = String(role || '').trim();
+      if (!raw) return '';
+      const normalized = raw.toLowerCase();
+      if (normalized === 'unknown' || normalized === 'role' || normalized === 'не определено') {
+        return '';
+      }
+      return raw;
+    }
+
+    function shouldShowRoleChip(role) {
+      return Boolean(normalizeSegmentRole(role));
+    }
+
+    function getSegmentSpeakerLabel(segment, index) {
+      const rawSpeaker = String(segment && segment.speaker || '').trim();
+      if (!rawSpeaker || /^unknown$/i.test(rawSpeaker)) {
+        return '';
+      }
+
+      const speakerMatch = rawSpeaker.match(/^speaker\s*([1-9]\d*)$/i);
+      if (speakerMatch) {
+        const speakerNumber = Number(speakerMatch[1]);
+        return `Speaker ${speakerNumber}`;
+      }
+
+      const diarizationMatch = rawSpeaker.match(/^speaker[_\s-]*0*(\d+)$/i);
+      if (diarizationMatch) {
+        const zeroBased = Number(diarizationMatch[1]);
+        return `Speaker ${zeroBased + 1}`;
+      }
+
+      return rawSpeaker;
+    }
+
+    function renderTranscriptSegments(segments) {
+      if (!Array.isArray(segments) || segments.length === 0) {
+        return '<div class="empty">Transcript is empty.</div>';
+      }
+
+      return `
+        <div class="segments">
+          ${segments.map((segment, index) => {
+            const speakerLabel = getSegmentSpeakerLabel(segment, index);
+            const roleLabel = normalizeSegmentRole(segment && segment.role);
+            return `
+              <div class="segment">
+                <div class="segment-meta">
+                  <span>${formatSec(segment && segment.start)} - ${formatSec(segment && segment.end)} sec</span>
+                  ${speakerLabel ? `<span class="chip">${escapeHtml(speakerLabel)}</span>` : ''}
+                  ${shouldShowRoleChip(roleLabel) ? `<span class="chip">${escapeHtml(roleLabel)}</span>` : ''}
+                </div>
+                <div class="segment-text">${escapeHtml(segment && segment.text || '')}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderSlaSettingsBlock() {
+      const updatedAt = state.appSettings && state.appSettings.updatedAt
+        ? formatTime(state.appSettings.updatedAt)
+        : 'not saved yet';
+      return `
+        <section class="card">
+          <h3>SLA Settings</h3>
+          <div class="grid-2">
+            <div class="row">
+              <label>SLA target in minutes</label>
+              <input id="sla-minutes-input" type="number" min="1" max="1440" step="1" value="${escapeAttr(normalizeSlaMinutes(state.appSettings && state.appSettings.slaMinutes))}" />
+            </div>
+            <div class="help-note">
+              <strong>Current default:</strong> ${escapeHtml(String(normalizeSlaMinutes(state.appSettings && state.appSettings.slaMinutes)))} minutes<br />
+              <strong>Last updated:</strong> ${escapeHtml(updatedAt)}<br />
+              New calls inherit this SLA. Existing calls keep the value captured when they entered the queue.
+            </div>
+          </div>
+          <div class="toolbar">
+            <button id="save-sla-btn" class="btn btn-primary btn-mini" type="button" ${state.slaSaveBusy ? 'disabled' : ''}>Save SLA</button>
+          </div>
+        </section>
+      `;
+    }
+
+    async function loadAppSettings(silent) {
+      try {
+        const payload = await apiJson('/api/v1/app-settings');
+        state.appSettings = {
+          slaMinutes: normalizeSlaMinutes(payload && payload.sla_minutes),
+          updatedAt: payload && payload.updated_at ? String(payload.updated_at) : ''
+        };
+      } catch (err) {
+        state.appSettings = {
+          slaMinutes: 15,
+          updatedAt: ''
+        };
+        if (!silent) {
+          setBanner('Failed to load app settings. Using default SLA 15 minutes.', 'error');
+        }
+      }
+    }
+
+    async function loadRoutingCatalog(silent) {
+      try {
+        const payload = await apiJson('/api/v1/routing-config');
+        state.catalog = normalizeCatalog(payload);
+      } catch (err) {
+        state.catalog = cloneCatalog(FALLBACK_CATALOG);
+        if (!silent) {
+          setBanner('Routing config load failed. Using local fallback presets.', 'error');
+        }
+      }
+    }
+
+    async function loadRoutingModelStatus(silent) {
+      try {
+        const payload = await apiJson('/api/v1/routing-model/status');
+        state.routingModelStatus = payload;
+      } catch (err) {
+        state.routingModelStatus = null;
+        if (!silent) {
+          setBanner('Routing model status request failed.', 'error');
+        }
+      }
+    }
+
+    async function loadUsers(silent) {
+      if (!isAdmin()) {
+        state.users = [];
+        return;
+      }
+      try {
+        const payload = await apiJson('/api/v1/users');
+        const users = payload && Array.isArray(payload.users) ? payload.users : [];
+        state.users = users.slice().sort((a, b) => {
+          return String(a.username || '').localeCompare(String(b.username || ''));
+        });
+      } catch (err) {
+        state.users = [];
+        if (!silent) {
+          setBanner('Failed to load users list.', 'error');
+        }
+      }
+    }
+
+    async function loadCalls(silent) {
+      if (!isAuthenticated()) {
+        state.calls = [];
+        state.selectedCallId = null;
+        persist();
+        return;
+      }
+
+      try {
+        const payload = await apiJson('/api/v1/calls');
+        const calls = payload && Array.isArray(payload.calls) ? payload.calls.map(normalizeStoredCall) : [];
+        state.calls = calls;
+        if (!state.selectedCallId || !state.calls.some((call) => call.id === state.selectedCallId)) {
+          state.selectedCallId = state.calls[0] ? state.calls[0].id : null;
+        }
+        persist();
+      } catch (err) {
+        state.calls = [];
+        state.selectedCallId = null;
+        if (!silent) {
+          setBanner('Failed to load shared call queue.', 'error');
+        }
+      }
+    }
+
+    async function reloadCallsAndSelect(preferredId) {
+      await loadCalls(true);
+      const normalizedId = String(preferredId || '').trim();
+      if (normalizedId && state.calls.some((call) => call.id === normalizedId)) {
+        state.selectedCallId = normalizedId;
+      } else {
+        state.selectedCallId = state.calls[0] ? state.calls[0].id : null;
+      }
+      persist();
+      render();
+    }
+
+    async function onProcessSubmit(event) {
+      event.preventDefault();
+      const file = el.file.files[0];
+      if (!file) {
+        setBanner('Please select an audio file before processing.', 'error');
+        return;
+      }
+
+      state.processing = true;
+      renderActions();
+      setBanner('Processing call. This can take time on CPU.', 'ok');
+
+      const body = new FormData();
+      body.append('audio', file, file.name);
+
+      try {
+        const payload = await apiJson('/api/v1/process-call', { method: 'POST', body });
+        await reloadCallsAndSelect(payload && payload.queue_id);
+        setBanner('Call processed and added to review queue.', 'ok');
+        el.file.value = '';
+      } catch (err) {
+        setBanner(String(err.message || err), 'error');
+      } finally {
+        state.processing = false;
+        renderActions();
+      }
+    }
+
+    function normalizeSpamCheck(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      return {
+        status: String(raw.status || '').trim(),
+        predicted_label: String(raw.predicted_label || '').trim(),
+        confidence: Number(raw.confidence || 0),
+        threshold_low: Number(raw.threshold_low || 0),
+        threshold_high: Number(raw.threshold_high || 0),
+        reason: String(raw.reason || '').trim(),
+        skipped: Boolean(raw.skipped),
+        backend: String(raw.backend || '').trim()
+      };
+    }
+
+    function normalizeTicket(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const ticketId = String(raw.ticket_id || raw.ticketId || '').trim();
+      const externalId = String(raw.external_id || raw.externalId || '').trim();
+      const url = String(raw.url || '').trim();
+      const system = String(raw.system || '').trim();
+      const createdAt = normalizeTimestamp(raw.created_at || raw.createdAt);
+      if (!ticketId && !externalId && !url && !system && !createdAt) return null;
+      return { ticketId, externalId, url, system, createdAt };
+    }
+
+    function isAwaitingRoutingReview(call) {
+      return Boolean(call && call.status === 'awaiting_routing_review');
+    }
+
+    function isSpamBlockedCall(call) {
+      return Boolean(call && call.status === 'spam_blocked');
+    }
+
+    function canReviewRouting(call) {
+      return Boolean(call) && !isSpamBlockedCall(call);
+    }
+
+    function canOverrideSpam(call) {
+      return Boolean(call) && isSpamBlockedCall(call);
+    }
+
+    function render() {
+      renderAuth();
+      if (!isAuthenticated()) {
+        return;
+      }
+      renderCallsList();
+      renderWorkspace();
+      renderActions();
+      renderTabs();
+      refreshSlaDisplays();
+    }
+
+    function renderAuth() {
+      const authenticated = isAuthenticated();
+      el.loginScreen.classList.toggle('hidden', authenticated);
+      el.appShell.classList.toggle('hidden', !authenticated);
+      el.loginBtn.disabled = state.authBusy;
+      renderAuthMode();
+      renderLoginBanner();
+      renderUserPill();
+    }
+
+    function renderAuthMode() {
+      const isLogin = state.authMode === 'login';
+      el.authModeLoginBtn.classList.toggle('active', isLogin);
+      el.authModeRegisterBtn.classList.toggle('active', !isLogin);
+      el.authModeLoginBtn.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+      el.authModeRegisterBtn.setAttribute('aria-selected', isLogin ? 'false' : 'true');
+      el.authSubtitle.textContent = isLogin
+        ? 'Sign in to process and review calls.'
+        : 'Create an operator account. Admin approval is required.';
+      el.authHint.textContent = isLogin
+        ? 'Use your existing account credentials.'
+        : 'Registration creates only operator role and stays pending until admin approves.';
+      el.loginBtn.textContent = isLogin ? 'Sign in' : 'Register';
+    }
+
+    function renderLoginBanner() {
+      if (!el.loginBanner) return;
+      if (!state.loginBanner) {
+        el.loginBanner.className = 'banner';
+        el.loginBanner.textContent = '';
+        return;
+      }
+      el.loginBanner.className = 'banner show ' + (state.loginBanner.type === 'error' ? 'error' : 'ok');
+      el.loginBanner.textContent = state.loginBanner.message;
+    }
+
+    function renderUserPill() {
+      if (!el.userPill) return;
+      if (!isAuthenticated()) {
+        el.userPill.textContent = '';
+        return;
+      }
+      const user = state.auth.user || {};
+      el.userPill.innerHTML = '<strong>' + escapeHtml(user.username || '-') + '</strong><span class="role-badge">' + escapeHtml(String(user.role || 'operator')) + '</span>';
+    }
+
+    function renderTabs() {
+      if (!isAdmin() && state.activeTab === 'settings') {
+        state.activeTab = 'review';
+      }
+
+      const isReview = state.activeTab === 'review';
+      el.tabReviewBtn.classList.toggle('active', isReview);
+      el.tabSettingsBtn.classList.toggle('active', !isReview);
+      el.tabSettingsBtn.classList.toggle('hidden', !isAdmin());
+      el.tabReviewBtn.setAttribute('aria-selected', isReview ? 'true' : 'false');
+      el.tabSettingsBtn.setAttribute('aria-selected', isReview ? 'false' : 'true');
+      el.reviewToolbar.classList.toggle('hidden', !isReview);
+    }
+
+    function renderCallsList() {
+      if (state.calls.length === 0) {
+        el.callsList.innerHTML = '<li class="empty">No calls yet. Upload an audio file to start review.</li>';
+        return;
+      }
+
+      el.callsList.innerHTML = state.calls.map((call) => {
+        const active = call.id === state.selectedCallId ? 'active' : '';
+        let decisionChip = '<span class="chip chip-warn">pending</span>';
+        if (isAwaitingRoutingReview(call)) {
+          decisionChip = '<span class="chip chip-warn">routing review</span>';
+        } else if (isSpamBlockedCall(call)) {
+          decisionChip = '<span class="chip chip-bad">spam blocked</span>';
+        } else if (call.review.decision === 'accepted') {
+          decisionChip = '<span class="chip chip-ok">accepted</span>';
+        } else if (call.review.decision === 'rejected') {
+          decisionChip = '<span class="chip chip-bad">rejected</span>';
+        }
+
+        const groupChip = shouldShowCallsListGroupChip(call.review.group)
+          ? '<span class="chip">' + escapeHtml(call.review.group || 'unassigned') + '</span>'
+          : '';
+        const slaChip = renderSlaChip(call);
+        const deleteButton = isAdmin()
+          ? '<button class="btn btn-ghost btn-mini call-delete-btn js-del-call" data-id="' + escapeAttr(call.id) + '" type="button">Del</button>'
+          : '';
+
+        return (
+          '<li class="call-item ' + active + '" data-id="' + call.id + '">' +
+            '<div class="call-main">' +
+              '<div class="call-name">' + escapeHtml(call.sourceFilename) + '</div>' +
+              '<div class="call-side">' +
+                '<div class="call-time">' + formatTime(call.createdAt) + '</div>' +
+                deleteButton +
+              '</div>' +
+            '</div>' +
+            '<div class="chips">' + decisionChip + groupChip + slaChip + '</div>' +
+          '</li>'
+        );
+      }).join('');
+
+      [...el.callsList.querySelectorAll('.call-item')].forEach((item) => {
+        item.addEventListener('click', () => {
+          state.selectedCallId = item.dataset.id;
+          persist();
+          render();
+        });
+      });
+
+      [...el.callsList.querySelectorAll('.js-del-call')].forEach((button) => {
+        button.addEventListener('click', (event) => {
+          event.stopPropagation();
+          deleteCallById(button.dataset.id);
+        });
+      });
+    }
+
+    function renderWorkspace() {
+      if (state.activeTab === 'settings' && isAdmin()) {
+        el.workspace.innerHTML = renderCatalogBlock();
+        bindCatalogInputs();
+        renderBanner();
+        return;
+      }
+
+      const call = getSelectedCall();
+      if (!call) {
+        el.workspace.innerHTML = '<section class="card"><div class="empty">Select a call from the list to review routing details.</div></section>';
+        renderBanner();
+        return;
+      }
+
+      const segments = (call.transcript && call.transcript.segments) || [];
+      const suggestion = call.aiSuggestion || {};
+      const spamCheck = call.spamCheck || null;
+      const groupOptions = getGroupOptions();
+      const intentOptions = getIntentOptions();
+      const spamThresholdsMeta = isAdmin() ? `
+            <div class="kv"><div class="k">Thresholds</div><div class="v">${escapeHtml(Number(spamCheck && spamCheck.threshold_low || 0).toFixed(2))} / ${escapeHtml(Number(spamCheck && spamCheck.threshold_high || 0).toFixed(2))}</div></div>
+            <div class="kv"><div class="k">Backend</div><div class="v">${escapeHtml(spamCheck && spamCheck.backend || '-')}</div></div>
+      ` : '';
+      const ticketUrl = String((call.ticket && call.ticket.url) || (call.raw && call.raw.ticket && call.raw.ticket.url) || '').trim();
+      const ticketRef = String((call.ticket && (call.ticket.externalId || call.ticket.ticketId)) || (call.raw && call.raw.ticket && (call.raw.ticket.external_id || call.raw.ticket.ticket_id)) || '').trim();
+      const ticketMetaRow = ticketUrl
+        ? `
+            <div class="kv"><div class="k">Ticket</div><div class="v"><a href="${escapeAttr(ticketUrl)}" target="_blank" rel="noopener noreferrer">Open ticket</a></div></div>
+        `
+        : (ticketRef ? `
+            <div class="kv"><div class="k">Ticket</div><div class="v">${escapeHtml(ticketRef)}</div></div>
+        ` : '');
+      const saveDecisionHelp = isAdmin()
+        ? ' Save Decision = persist decision and send feedback for model improvement.'
+        : '';
+
+      const metaBlock = `
+        <section class="card">
+          <h3>Call Summary</h3>
+          <div class="meta">
+            <div class="kv"><div class="k">Source file</div><div class="v">${escapeHtml(call.sourceFilename || '-')}</div></div>
+            <div class="kv"><div class="k">Call ID</div><div class="v">${escapeHtml(call.callId || '-')}</div></div>
+            <div class="kv"><div class="k">Status</div><div class="v">${escapeHtml(call.status || 'completed')}</div></div>
+            ${ticketMetaRow}
+            <div class="kv"><div class="k">SLA</div><div class="v js-sla-summary" data-call-id="${escapeAttr(call.id)}">-</div></div>
+          </div>
+        </section>
+      `;
+
+      const spamMetaBlock = spamCheck ? `
+        <section class="card">
+          <h3>Spam Check</h3>
+          <div class="meta">
+            <div class="kv"><div class="k">Status</div><div class="v">${escapeHtml(spamCheck.status || '-')}</div></div>
+            <div class="kv"><div class="k">Confidence</div><div class="v">${formatConfidence(spamCheck.confidence)}</div></div>
+            ${spamThresholdsMeta}
+          </div>
+          <div class="help-note">
+            <strong>Reason:</strong> ${escapeHtml(spamCheck.reason || '-')}<br />
+            <strong>Predicted label:</strong> ${escapeHtml(spamCheck.predicted_label || '-')}
+          </div>
+        </section>
+      ` : '';
+
+      if (isSpamBlockedCall(call)) {
+        const overrideBlock = `
+          <section class="card">
+            <h3>Spam Override</h3>
+            <div class="help-note">
+              This call is currently blocked as spam. Use <strong>Accept AI</strong> to confirm a non-spam override.
+              The system will automatically rerun routing without the <code>spam.call</code> class and continue the pipeline.
+              If the new routing confidence is low, the call will move to manual routing review.
+            </div>
+          </section>
+        `;
+
+        const transcriptBlock = `
+          <section class="card">
+            <h3>Transcript</h3>
+            ${renderTranscriptSegments(segments)}
+          </section>
+        `;
+
+        const rawBlock = isAdmin() ? `
+          <section class="card">
+            <h3>Raw API JSON</h3>
+            <pre class="raw">${escapeHtml(JSON.stringify(makeReviewedPayload(call), null, 2))}</pre>
+          </section>
+        ` : '';
+
+        el.workspace.innerHTML = metaBlock + spamMetaBlock + overrideBlock + transcriptBlock + rawBlock;
+        renderBanner();
+        return;
+      }
+
+      const routingBlock = `
+        <section class="card">
+          <h3>Routing Review</h3>
+          <div class="grid-2">
+            <div>
+              <div class="row">
+                <label>AI intent</label>
+                <input value="${escapeAttr(suggestion.intentId || 'n/a')}" disabled />
+              </div>
+              <div class="row">
+                <label>AI confidence</label>
+                <input value="${formatConfidence(suggestion.confidence)}" disabled />
+              </div>
+              <div class="row">
+                <label>AI group</label>
+                <input value="${escapeAttr(suggestion.group || 'n/a')}" disabled />
+              </div>
+            </div>
+            <div>
+              <div class="row">
+                <label>Intent preset</label>
+                <select id="intent-preset">
+                  <option value="">Select existing intent</option>
+                  ${intentOptions.map((intent) => {
+                    const selected = intent.id === call.review.intentId ? 'selected' : '';
+                    return `<option value="${escapeAttr(intent.id)}" ${selected}>${escapeHtml(intent.title)} (${escapeHtml(intent.id)})</option>`;
+                  }).join('')}
+                </select>
+              </div>
+              <div class="row">
+                <label>Final intent id</label>
+                <input id="review-intent" value="${escapeAttr(call.review.intentId)}" readonly />
+              </div>
+              <div class="row">
+                <label>Final priority</label>
+                <select id="review-priority">
+                  ${PRIORITY_PRESETS.map((value) => {
+                    const selected = value === call.review.priority ? 'selected' : '';
+                    return `<option value="${value}" ${selected}>${value}</option>`;
+                  }).join('')}
+                </select>
+              </div>
+              <div class="row">
+                <label>Final group</label>
+                <input id="review-group" list="group-list" value="${escapeAttr(call.review.group)}" />
+                <datalist id="group-list">
+                  ${groupOptions.map((group) => `<option value="${escapeAttr(group.id)}">${escapeHtml(group.title)}</option>`).join('')}
+                </datalist>
+              </div>
+              <div class="row">
+                <label>AI error type</label>
+                <select id="review-error-type">
+                  ${ERROR_TYPE_PRESETS.map((item) => {
+                    const selected = item.value === (call.review.errorType || 'none') ? 'selected' : '';
+                    return `<option value="${escapeAttr(item.value)}" ${selected}>${escapeHtml(item.label)}</option>`;
+                  }).join('')}
+                </select>
+              </div>
+              <div class="row">
+                <label>Reviewer comment</label>
+                <textarea id="review-comment">${escapeHtml(call.review.comment || '')}</textarea>
+              </div>
+            </div>
+          </div>
+          <div class="help-note">
+            <strong>Buttons:</strong>
+            Accept AI = copy AI suggestion into final fields.
+            Reject AI = mark decision as rejected and keep your manual corrections.
+            ${saveDecisionHelp}
+          </div>
+        </section>
+      `;
+
+      const transcriptBlock = `
+        <section class="card">
+          <h3>Transcript</h3>
+          ${renderTranscriptSegments(segments)}
+        </section>
+      `;
+
+      const rawBlock = isAdmin() ? `
+        <section class="card">
+          <h3>Raw API JSON</h3>
+          <pre class="raw">${escapeHtml(JSON.stringify(makeReviewedPayload(call), null, 2))}</pre>
+        </section>
+      ` : '';
+
+      el.workspace.innerHTML = metaBlock + spamMetaBlock + routingBlock + transcriptBlock + rawBlock;
+
+      bindReviewInputs();
+      renderBanner();
+    }
+
+    function renderCatalogBlock() {
+      const groups = getGroupOptions();
+      const intents = getIntentOptions();
+      const modelStatus = state.routingModelStatus || {};
+      const tuned = modelStatus.tuned_model || {};
+      const modelLabel = tuned.active ? 'tuned model active' : 'baseline model active';
+      const modelReason = tuned.reason || 'n/a';
+      const modelVersion = tuned.version_id || '-';
+      const modelTrainedAt = tuned.trained_at || '-';
+      const trainReport = tuned.last_train_report || {};
+      const trainSamples = trainReport.dataset && trainReport.dataset.samples_total ? trainReport.dataset.samples_total : '-';
+      const valMetrics = trainReport.metrics && trainReport.metrics.val ? trainReport.metrics.val : {};
+      const trainF1 = typeof valMetrics.macro_f1 === 'number' ? valMetrics.macro_f1.toFixed(3) : '-';
+      const trainAccuracy = typeof valMetrics.accuracy === 'number' ? valMetrics.accuracy.toFixed(3) : '-';
+      const trainPrecision = typeof valMetrics.macro_precision === 'number' ? valMetrics.macro_precision.toFixed(3) : '-';
+      const trainRecall = typeof valMetrics.macro_recall === 'number' ? valMetrics.macro_recall.toFixed(3) : '-';
+      return `
+        ${renderSlaSettingsBlock()}
+        <section class="card">
+          <h3>Routing Catalog</h3>
+          <div class="toolbar">
+            <button id="refresh-catalog-btn" class="btn btn-ghost btn-mini" type="button">Refresh Catalog</button>
+            <button id="refresh-routing-model-btn" class="btn btn-ghost btn-mini" type="button">Refresh Model Status</button>
+          </div>
+          <div class="help-note">
+            <strong>Routing model:</strong> ${escapeHtml(modelLabel)}<br />
+            <strong>Status reason:</strong> ${escapeHtml(modelReason)}<br />
+            <strong>Version:</strong> ${escapeHtml(modelVersion)}<br />
+            <strong>Trained at:</strong> ${escapeHtml(modelTrainedAt)}<br />
+            <strong>Last train val:</strong> acc=${escapeHtml(String(trainAccuracy))}, p=${escapeHtml(String(trainPrecision))}, r=${escapeHtml(String(trainRecall))}, f1=${escapeHtml(String(trainF1))}<br />
+            <strong>Last train samples:</strong> ${escapeHtml(String(trainSamples))}
+          </div>
+          <div class="catalog-grid">
+            <div>
+              <div class="row">
+                <label>Groups (${groups.length})</label>
+                <div class="catalog-list">
+                  ${groups.length === 0 ? '<div class="catalog-item-sub">No groups configured.</div>' : groups.map((group) => `
+                    <div class="catalog-item">
+                      <div class="catalog-item-title">
+                        <span>${escapeHtml(group.title)} (${escapeHtml(group.id)})</span>
+                      </div>
+                      <div class="catalog-item-sub">${escapeHtml(group.description || '')}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="row">
+                <label>Intents (${intents.length})</label>
+                <div class="help-note">
+                  Catalog editing is disabled in the simplified deployment.
+                </div>
+                <div class="catalog-list">
+                  ${intents.length === 0 ? '<div class="catalog-item-sub">No intents configured.</div>' : intents.map((intent) => `
+                    <div class="catalog-item">
+                      <div class="catalog-item-title">
+                        <span>${escapeHtml(intent.title)} (${escapeHtml(intent.id)})</span>
+                      </div>
+                      <div class="catalog-item-sub">
+                        group: ${escapeHtml(intent.default_group)} | priority: ${escapeHtml(intent.priority)}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        ${renderUsersAdminBlock()}
+      `;
+    }
+
+    function renderUsersAdminBlock() {
+      const users = Array.isArray(state.users) ? state.users : [];
+      const pendingOperators = users.filter((user) => user && user.role === 'operator' && !user.is_approved);
+      const activeOperators = users.filter((user) => user && user.role === 'operator' && user.is_active);
+      const inactiveOperators = users.filter((user) => user && user.role === 'operator' && user.is_approved && !user.is_active);
+      const admins = users.filter((user) => user && user.role === 'admin');
+
+      return `
+        <section class="card">
+          <h3>User Management</h3>
+          <div class="toolbar">
+            <button id="refresh-users-btn" class="btn btn-ghost btn-mini" type="button">Refresh Users</button>
+          </div>
+          <div class="help-note">
+            <strong>Admins:</strong> ${admins.length} |
+            <strong>Active operators:</strong> ${activeOperators.length} |
+            <strong>Inactive operators:</strong> ${inactiveOperators.length} |
+            <strong>Pending operators:</strong> ${pendingOperators.length}
+          </div>
+          <div class="row">
+            <label>Active operators</label>
+            <div class="catalog-list">
+              ${activeOperators.length === 0 ? '<div class="catalog-item-sub">No active operators.</div>' : activeOperators.map((user) => `
+                <div class="catalog-item">
+                  <div class="catalog-item-title">
+                    <span>${escapeHtml(user.username)} (operator)</span>
+                    <div class="toolbar">
+                      <button class="btn btn-bad btn-mini js-deactivate-user" data-id="${escapeAttr(String(user.id))}" type="button">Deactivate</button>
+                    </div>
+                  </div>
+                  <div class="catalog-item-sub">created: ${escapeHtml(formatTime(user.created_at))}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="row">
+            <label>Inactive operators (approved)</label>
+            <div class="catalog-list">
+              ${inactiveOperators.length === 0 ? '<div class="catalog-item-sub">No inactive approved operators.</div>' : inactiveOperators.map((user) => `
+                <div class="catalog-item">
+                  <div class="catalog-item-title">
+                    <span>${escapeHtml(user.username)} (operator)</span>
+                    <div class="toolbar">
+                      <button class="btn btn-ok btn-mini js-activate-user" data-id="${escapeAttr(String(user.id))}" type="button">Activate</button>
+                    </div>
+                  </div>
+                  <div class="catalog-item-sub">created: ${escapeHtml(formatTime(user.created_at))}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div class="row">
+            <label>Pending operator registrations</label>
+            <div class="catalog-list">
+              ${pendingOperators.length === 0 ? '<div class="catalog-item-sub">No pending operator registrations.</div>' : pendingOperators.map((user) => `
+                <div class="catalog-item">
+                  <div class="catalog-item-title">
+                    <span>${escapeHtml(user.username)} (operator)</span>
+                    <div class="toolbar">
+                      <button class="btn btn-ok btn-mini js-approve-user" data-id="${escapeAttr(String(user.id))}" type="button">Approve</button>
+                      <button class="btn btn-bad btn-mini js-del-user" data-id="${escapeAttr(String(user.id))}" type="button">Delete</button>
+                    </div>
+                  </div>
+                  <div class="catalog-item-sub">created: ${escapeHtml(formatTime(user.created_at))}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    function bindReviewInputs() {
+      const call = getSelectedCall();
+      if (!call) return;
+
+      const intentPreset = document.getElementById('intent-preset');
+      const intentInput = document.getElementById('review-intent');
+      const priorityInput = document.getElementById('review-priority');
+      const groupInput = document.getElementById('review-group');
+      const errorTypeInput = document.getElementById('review-error-type');
+      const commentInput = document.getElementById('review-comment');
+      if (!intentInput || !intentPreset || !priorityInput || !groupInput || !errorTypeInput || !commentInput) return;
+
+      intentPreset.addEventListener('change', () => {
+        const selected = getIntentMeta(intentPreset.value);
+        if (!selected) return;
+        call.review.intentId = selected.id;
+        call.review.priority = selected.priority;
+        call.review.group = selected.default_group;
+        persist();
+        renderWorkspace();
+        renderCallsList();
+      });
+
+      priorityInput.addEventListener('change', () => {
+        call.review.priority = priorityInput.value;
+        persist();
+        renderCallsList();
+      });
+
+      groupInput.addEventListener('input', () => {
+        call.review.group = groupInput.value.trim();
+        persist();
+        renderCallsList();
+      });
+
+      errorTypeInput.addEventListener('change', () => {
+        call.review.errorType = errorTypeInput.value;
+        persist();
+      });
+
+      commentInput.addEventListener('input', () => {
+        call.review.comment = commentInput.value;
+        persist();
+      });
+    }
+
+    function bindCatalogInputs() {
+      const saveSlaBtn = document.getElementById('save-sla-btn');
+      if (saveSlaBtn) {
+        saveSlaBtn.addEventListener('click', async () => {
+          const input = document.getElementById('sla-minutes-input');
+          const rawValue = input ? input.value.trim() : '';
+          const numericValue = Number(rawValue);
+          if (!Number.isFinite(numericValue) || numericValue < 1 || numericValue > 1440) {
+            setBanner('SLA minutes must be between 1 and 1440.', 'error');
+            return;
+          }
+
+          state.slaSaveBusy = true;
+          render();
+          try {
+            const payload = await apiJson('/api/v1/app-settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sla_minutes: Math.round(numericValue) })
+            });
+            state.appSettings = {
+              slaMinutes: normalizeSlaMinutes(payload && payload.sla_minutes),
+              updatedAt: payload && payload.updated_at ? String(payload.updated_at) : ''
+            };
+            render();
+            setBanner('SLA updated. New calls will use ' + state.appSettings.slaMinutes + ' minutes.', 'ok');
+          } catch (err) {
+            setBanner(String(err.message || err), 'error');
+          } finally {
+            state.slaSaveBusy = false;
+            render();
+          }
+        });
+      }
+
+      const refreshBtn = document.getElementById('refresh-catalog-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+          await loadRoutingCatalog(false);
+          render();
+          setBanner('Routing catalog refreshed from server.', 'ok');
+        });
+      }
+
+      const refreshModelBtn = document.getElementById('refresh-routing-model-btn');
+      if (refreshModelBtn) {
+        refreshModelBtn.addEventListener('click', async () => {
+          await loadRoutingModelStatus(false);
+          render();
+          setBanner('Routing model status refreshed.', 'ok');
+        });
+      }
+
+      const refreshUsersBtn = document.getElementById('refresh-users-btn');
+      if (refreshUsersBtn) {
+        refreshUsersBtn.addEventListener('click', async () => {
+          await loadUsers(false);
+          render();
+          setBanner('Users list refreshed.', 'ok');
+        });
+      }
+
+
+      [...document.querySelectorAll('.js-approve-user')].forEach((button) => {
+        button.addEventListener('click', async () => {
+          const userID = button.dataset.id;
+          if (!userID) return;
+          try {
+            await apiJson('/api/v1/users/' + encodeURIComponent(userID) + '/approve', {
+              method: 'POST'
+            });
+            await loadUsers(true);
+            render();
+            setBanner('Operator account approved.', 'ok');
+          } catch (err) {
+            setBanner(String(err.message || err), 'error');
+          }
+        });
+      });
+
+      [...document.querySelectorAll('.js-activate-user')].forEach((button) => {
+        button.addEventListener('click', async () => {
+          const userID = button.dataset.id;
+          if (!userID) return;
+          try {
+            await apiJson('/api/v1/users/' + encodeURIComponent(userID) + '/approve', {
+              method: 'POST'
+            });
+            await loadUsers(true);
+            render();
+            setBanner('Operator account activated.', 'ok');
+          } catch (err) {
+            setBanner(String(err.message || err), 'error');
+          }
+        });
+      });
+
+      [...document.querySelectorAll('.js-deactivate-user')].forEach((button) => {
+        button.addEventListener('click', async () => {
+          const userID = button.dataset.id;
+          if (!userID) return;
+          if (!confirm('Deactivate this operator account?')) return;
+          try {
+            await apiJson('/api/v1/users/' + encodeURIComponent(userID) + '/deactivate', {
+              method: 'POST'
+            });
+            await loadUsers(true);
+            render();
+            setBanner('Operator account deactivated.', 'ok');
+          } catch (err) {
+            setBanner(String(err.message || err), 'error');
+          }
+        });
+      });
+
+      [...document.querySelectorAll('.js-del-user')].forEach((button) => {
+        button.addEventListener('click', async () => {
+          const userID = button.dataset.id;
+          if (!userID) return;
+          if (!confirm('Delete this operator account?')) return;
+          try {
+            await apiJson('/api/v1/users/' + encodeURIComponent(userID), {
+              method: 'DELETE'
+            });
+            await loadUsers(true);
+            render();
+            setBanner('User account deleted.', 'ok');
+          } catch (err) {
+            setBanner(String(err.message || err), 'error');
+          }
+        });
+      });
+    }
+
+    function applyDecision(decision) {
+      const call = getSelectedCall();
+      if (!call || !canReviewRouting(call)) return;
+
+      applyDecisionToCall(call, decision);
+      persist();
+      render();
+      setBanner('Decision set to "' + decision + '".', 'ok');
+    }
+
+    function applyDecisionToCall(call, decision) {
+      if (!call || !canReviewRouting(call)) return;
+      if (decision === 'accepted') {
+        call.review.intentId = call.aiSuggestion.intentId || call.review.intentId;
+        call.review.priority = call.aiSuggestion.priority || call.review.priority;
+        call.review.group = call.aiSuggestion.group || call.review.group;
+        call.review.errorType = 'none';
+      } else if (!call.review.errorType || call.review.errorType === 'none') {
+        call.review.errorType = 'wrong_intent';
+      }
+
+      call.review.decision = decision;
+    }
+
+    async function onAcceptClick() {
+      const call = getSelectedCall();
+      if (!call) return;
+
+      if (canOverrideSpam(call)) {
+        await resolveSpamOverride();
+        return;
+      }
+
+      if (!canReviewRouting(call)) return;
+
+      if (isAwaitingRoutingReview(call)) {
+        applyDecisionToCall(call, 'accepted');
+        persist();
+        render();
+        await resolveRoutingReview('accepted');
+        return;
+      }
+
+      applyDecision('accepted');
+    }
+
+    function onRejectClick() {
+      applyDecision('rejected');
+    }
+
+    function buildRoutingReviewRequest(call, decision) {
+      return {
+        queue_id: call.id || '',
+        call_id: call.callId || '',
+        source_filename: call.sourceFilename || '',
+        decision,
+        transcript: call.transcript || { segments: [] },
+        routing: {
+          intent_id: call.review.intentId || call.aiSuggestion.intentId || '',
+          intent_confidence: Number(call.aiSuggestion.confidence || 0),
+          priority: call.review.priority || call.aiSuggestion.priority || 'medium',
+          suggested_group: call.review.group || call.aiSuggestion.group || ''
+        },
+        spam_check: call.spamCheck || {}
+      };
+    }
+
+    async function saveDecision() {
+      const call = getSelectedCall();
+      if (!call || !canReviewRouting(call)) return;
+      if (!isAdmin()) {
+        setBanner('Only admins can save routing decisions.', 'error');
+        return;
+      }
+
+      if (!call.review.intentId || !call.review.group) {
+        setBanner('Final intent id and final group are required.', 'error');
+        return;
+      }
+
+      if (call.review.decision === 'pending') {
+        call.review.decision = 'accepted';
+      }
+
+      const requiresRoutingReviewCompletion = isAwaitingRoutingReview(call);
+
+      if (requiresRoutingReviewCompletion) {
+        state.routingReviewBusy = true;
+        renderActions();
+      }
+
+      let createdTicket = false;
+      try {
+        if (requiresRoutingReviewCompletion) {
+          await apiJson('/api/v1/routing-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildRoutingReviewRequest(call, call.review.decision || 'accepted'))
+          });
+          createdTicket = true;
+        }
+
+        const feedbackPayload = makeFeedbackPayload(call);
+        const feedbackResponse = await apiJson('/api/v1/routing-feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(feedbackPayload)
+        });
+        await reloadCallsAndSelect(call.id);
+
+        const autoLearnApplied = Boolean(feedbackResponse && feedbackResponse.auto_learn_applied);
+        const autoLearnMessage = feedbackResponse && feedbackResponse.auto_learn_message
+          ? ' ' + feedbackResponse.auto_learn_message
+          : '';
+
+        if (createdTicket && autoLearnApplied) {
+          setBanner('Decision saved. Ticket created. Auto-learning applied.' + autoLearnMessage, 'ok');
+        } else if (createdTicket) {
+          setBanner('Decision saved. Ticket created.' + autoLearnMessage, 'ok');
+        } else if (autoLearnApplied) {
+          setBanner('Decision saved. Auto-learning applied.' + autoLearnMessage, 'ok');
+        } else {
+          setBanner('Decision saved.' + autoLearnMessage, 'ok');
+        }
+      } catch (err) {
+        render();
+        if (createdTicket) {
+          setBanner('Ticket was created, but saving routing feedback failed: ' + String(err.message || err), 'error');
+        } else if (requiresRoutingReviewCompletion) {
+          setBanner('Routing review could not create ticket: ' + String(err.message || err), 'error');
+        } else {
+          setBanner('Saved locally, but feedback API failed: ' + String(err.message || err), 'error');
+        }
+      } finally {
+        if (requiresRoutingReviewCompletion) {
+          state.routingReviewBusy = false;
+          renderActions();
+        }
+      }
+    }
+
+    async function resolveRoutingReview(decision) {
+      const call = getSelectedCall();
+      if (!call || !isAwaitingRoutingReview(call)) return;
+
+      state.routingReviewBusy = true;
+      renderActions();
+      setBanner(
+        decision === 'accepted'
+          ? 'Creating ticket after routing review...'
+          : 'Creating ticket after manual routing review...',
+        'ok'
+      );
+
+      try {
+        const payload = await apiJson('/api/v1/routing-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildRoutingReviewRequest(call, decision))
+        });
+        await reloadCallsAndSelect(payload && payload.queue_id || call.id);
+        setBanner(
+          decision === 'accepted'
+            ? 'Ticket created after routing review.'
+            : 'Ticket created after manual routing review.',
+          'ok'
+        );
+      } catch (err) {
+        setBanner(String(err.message || err), 'error');
+      } finally {
+        state.routingReviewBusy = false;
+        renderActions();
+      }
+    }
+
+    async function resolveSpamOverride() {
+      const call = getSelectedCall();
+      if (!call || !canOverrideSpam(call)) return;
+
+      state.routingReviewBusy = true;
+      renderActions();
+      setBanner('Resuming pipeline after spam override...', 'ok');
+
+      try {
+        const payload = await apiJson('/api/v1/routing-review', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildRoutingReviewRequest(call, 'accepted'))
+        });
+        await reloadCallsAndSelect(payload && payload.queue_id || call.id);
+        const updated = getSelectedCall();
+        if (updated && isAwaitingRoutingReview(updated)) {
+          setBanner('Spam override applied. Routing needs manual review because confidence is low.', 'ok');
+        } else {
+          setBanner('Spam override applied. Pipeline continued automatically.', 'ok');
+        }
+      } catch (err) {
+        setBanner(String(err.message || err), 'error');
+      } finally {
+        state.routingReviewBusy = false;
+        renderActions();
+      }
+    }
+
+    async function clearAllCalls() {
+      if (!isAdmin()) {
+        setBanner('Only admins can remove calls from the shared review queue.', 'error');
+        return;
+      }
+      if (!confirm('Clear all calls from the shared review queue?')) return;
+      try {
+        await apiJson('/api/v1/calls', { method: 'DELETE' });
+        state.calls = [];
+        state.selectedCallId = null;
+        persist();
+        render();
+        setBanner('All shared call records were removed.', 'ok');
+      } catch (err) {
+        setBanner(String(err.message || err), 'error');
+      }
+    }
+
+    async function deleteCallById(callId) {
+      if (!isAdmin()) {
+        setBanner('Only admins can remove calls from the shared review queue.', 'error');
+        return;
+      }
+
+      const normalizedCallId = String(callId || '').trim();
+      if (!normalizedCallId) return;
+
+      const index = state.calls.findIndex((call) => call.id === normalizedCallId);
+      if (index < 0) return;
+
+      const call = state.calls[index];
+      const label = call && call.sourceFilename ? call.sourceFilename : normalizedCallId;
+      if (!confirm('Delete call "' + label + '" from the shared review queue?')) return;
+
+      try {
+        await apiJson('/api/v1/calls/' + encodeURIComponent(normalizedCallId), {
+          method: 'DELETE'
+        });
+        state.calls.splice(index, 1);
+        if (state.selectedCallId === normalizedCallId) {
+          const nextCall = state.calls[index] || state.calls[index - 1] || null;
+          state.selectedCallId = nextCall ? nextCall.id : null;
+        }
+        persist();
+        render();
+        setBanner('Call removed from the shared review queue.', 'ok');
+      } catch (err) {
+        setBanner(String(err.message || err), 'error');
+      }
+    }
+
+    async function copyCurrentCall() {
+      const call = getSelectedCall();
+      if (!call) return;
+      const text = JSON.stringify(makeReviewedPayload(call), null, 2);
+      try {
+        await navigator.clipboard.writeText(text);
+        setBanner('Reviewed JSON copied to clipboard.', 'ok');
+      } catch (_err) {
+        setBanner('Clipboard access failed in this browser context.', 'error');
+      }
+    }
+
+    function exportCurrentCall() {
+      const call = getSelectedCall();
+      if (!call) return;
+      const payload = JSON.stringify(makeReviewedPayload(call), null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (call.sourceFilename || 'call') + '.reviewed.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setBanner('Reviewed JSON exported.', 'ok');
+    }
+
+    function makeReviewedPayload(call) {
+      const base = call.raw || {};
+      return {
+        ...base,
+        reviewer_routing: {
+          decision: call.review.decision,
+          error_type: call.review.errorType || 'none',
+          final_intent_id: call.review.intentId,
+          final_priority: call.review.priority,
+          final_group: call.review.group,
+          comment: call.review.comment || ''
+        }
+      };
+    }
+
+    function makeFeedbackPayload(call) {
+      const segments = (call.transcript && Array.isArray(call.transcript.segments)) ? call.transcript.segments : [];
+      return {
+        queue_id: call.id || '',
+        call_id: call.callId || '',
+        source_filename: call.sourceFilename || '',
+        decision: call.review.decision || 'accepted',
+        error_type: call.review.errorType || (call.review.decision === 'accepted' ? 'none' : 'other'),
+        comment: call.review.comment || '',
+        transcript_text: segmentsToText(segments, 8000),
+        transcript_segments: segmentsToFeedbackSegments(segments, 160),
+        training_sample: segmentsToText(segments, 280),
+        ai: {
+          intent_id: call.aiSuggestion.intentId || '',
+          confidence: Number(call.aiSuggestion.confidence || 0),
+          priority: call.aiSuggestion.priority || '',
+          group: call.aiSuggestion.group || ''
+        },
+        final: {
+          intent_id: call.review.intentId || '',
+          priority: call.review.priority || '',
+          group: call.review.group || ''
+        }
+      };
+    }
+
+    function segmentsToFeedbackSegments(segments, maxItems) {
+      if (!Array.isArray(segments) || segments.length === 0) return [];
+      const out = [];
+      const limit = Math.max(1, Number(maxItems || 160));
+      for (const segment of segments) {
+        const text = String(segment && segment.text || '').trim();
+        if (!text) continue;
+        const start = Number(segment && segment.start);
+        const end = Number(segment && segment.end);
+        out.push({
+          start: Number.isFinite(start) && start >= 0 ? start : 0,
+          end: Number.isFinite(end) && end >= 0 ? end : 0,
+          speaker: String(segment && segment.speaker || '').trim(),
+          role: String(segment && segment.role || '').trim(),
+          text: text.slice(0, 420)
+        });
+        if (out.length >= limit) break;
+      }
+      return out;
+    }
+
+    function segmentsToText(segments, maxChars) {
+      if (!Array.isArray(segments) || segments.length === 0) return '';
+      const parts = [];
+      for (const segment of segments) {
+        const text = String(segment && segment.text || '').trim();
+        if (text) parts.push(text);
+      }
+      const joined = parts.join(' ');
+      return maxChars > 0 ? joined.slice(0, maxChars) : joined;
+    }
+
+    function normalizeStoredCall(call) {
+      if (!call || typeof call !== 'object') return call;
+      if (!call.status) {
+        call.status = 'completed';
+      }
+      call.processedAt = normalizeTimestamp(call.processedAt || (call.raw && call.raw.processed_at));
+      call.ticket = normalizeTicket(call.ticket || (call.raw && call.raw.ticket));
+      call.spamCheck = normalizeSpamCheck(call.spamCheck || (call.raw && call.raw.spam_check) || (call.raw && call.raw.routing && call.raw.routing.spam_check));
+      if (!call.review || typeof call.review !== 'object') {
+        call.review = {
+          decision: 'pending',
+          intentId: 'misc.triage',
+          priority: 'medium',
+          group: '',
+          errorType: 'none',
+          comment: '',
+          completedAt: ''
+        };
+      }
+      call.review.errorType = call.review.errorType || 'none';
+      if (!call.review.decision) call.review.decision = 'pending';
+      if (!call.review.priority) call.review.priority = 'medium';
+      if (!call.review.intentId) call.review.intentId = 'misc.triage';
+      if (!call.review.group) call.review.group = '';
+      if (typeof call.review.comment !== 'string') call.review.comment = '';
+      if (typeof call.review.completedAt !== 'string') call.review.completedAt = '';
+      if (!call.aiSuggestion || typeof call.aiSuggestion !== 'object') {
+        call.aiSuggestion = {
+          intentId: 'misc.triage',
+          confidence: 0,
+          priority: 'medium',
+          group: ''
+        };
+      }
+      ensureCallSla(call);
+      return call;
+    }
+
+    function getSelectedCall() {
+      return state.calls.find((call) => call.id === state.selectedCallId) || null;
+    }
+
+    function renderActions() {
+      const disabled = state.processing || state.routingReviewBusy || !isAuthenticated();
+      el.logoutBtn.disabled = state.processing;
+      el.processBtn.disabled = disabled;
+      el.clearBtn.classList.toggle('hidden', !isAdmin());
+      el.clearBtn.disabled = disabled || !isAdmin() || state.calls.length === 0;
+      el.saveBtn.classList.toggle('hidden', !isAdmin());
+
+      const call = state.activeTab === 'review' ? getSelectedCall() : null;
+      const hasCall = Boolean(call);
+      const canReview = Boolean(call) && canReviewRouting(call);
+      const canAccept = Boolean(call) && (canReviewRouting(call) || canOverrideSpam(call));
+      el.acceptBtn.disabled = !canAccept || disabled;
+      el.rejectBtn.disabled = !canReview || disabled;
+      el.saveBtn.disabled = !canReview || disabled || !isAdmin();
+      el.exportBtn.disabled = !hasCall || disabled;
+      el.copyBtn.disabled = !hasCall || disabled;
+    }
+
+    function setBanner(message, type) {
+      state.banner = { message, type };
+      renderBanner();
+    }
+
+    function renderBanner() {
+      const host = document.getElementById('local-banner');
+      if (!host) return;
+
+      if (!state.banner) {
+        host.className = 'banner';
+        host.textContent = '';
+        return;
+      }
+
+      host.className = 'banner show ' + (state.banner.type === 'error' ? 'error' : 'ok');
+      host.textContent = state.banner.message;
+    }
+
+    function getIntentMeta(intentID) {
+      return getIntentOptions().find((intent) => intent.id === intentID) || null;
+    }
+
+    function shouldShowCallsListGroupChip(groupID) {
+      return true;
+    }
+
+    function getIntentOptions() {
+      return (state.catalog && Array.isArray(state.catalog.intents) ? state.catalog.intents : []).slice();
+    }
+
+    function getGroupOptions() {
+      return (state.catalog && Array.isArray(state.catalog.groups) ? state.catalog.groups : []).slice();
+    }
+
+    function normalizeCatalog(raw) {
+      const normalized = { groups: [], intents: [] };
+
+      const groupsRaw = raw && raw.groups ? raw.groups : [];
+      if (Array.isArray(groupsRaw)) {
+        normalized.groups = groupsRaw.map((group) => ({
+          id: String(group.id || '').trim(),
+          title: String(group.title || '').trim(),
+          description: String(group.description || '').trim()
+        })).filter((group) => group.id && group.title);
+      } else {
+        normalized.groups = Object.keys(groupsRaw).map((id) => ({
+          id,
+          title: String(groupsRaw[id] && groupsRaw[id].title || id).trim(),
+          description: String(groupsRaw[id] && groupsRaw[id].description || '').trim()
+        })).filter((group) => group.id && group.title);
+      }
+
+      const intentsRaw = raw && raw.intents ? raw.intents : [];
+      if (Array.isArray(intentsRaw)) {
+        normalized.intents = intentsRaw.map((intent) => ({
+          id: String(intent.id || '').trim(),
+          title: String(intent.title || '').trim(),
+          description: String(intent.description || '').trim(),
+          default_group: String(intent.default_group || '').trim(),
+          priority: normalizePriority(intent.priority || 'medium'),
+          examples: Array.isArray(intent.examples) ? intent.examples.map((item) => String(item || '').trim()).filter(Boolean) : [],
+          tags: Array.isArray(intent.tags) ? intent.tags.map((item) => String(item || '').trim()).filter(Boolean) : []
+        })).filter((intent) => intent.id && intent.title);
+      } else {
+        normalized.intents = Object.keys(intentsRaw).map((id) => {
+          const item = intentsRaw[id] || {};
+          return {
+            id,
+            title: String(item.title || id).trim(),
+            description: String(item.description || '').trim(),
+            default_group: String(item.default_group || '').trim(),
+            priority: normalizePriority(item.priority || 'medium'),
+            examples: Array.isArray(item.examples) ? item.examples.map((sample) => String(sample || '').trim()).filter(Boolean) : [],
+            tags: Array.isArray(item.tags) ? item.tags.map((tag) => String(tag || '').trim()).filter(Boolean) : []
+          };
+        }).filter((intent) => intent.id && intent.title);
+      }
+
+      normalized.groups.sort((a, b) => a.id.localeCompare(b.id));
+      normalized.intents.sort((a, b) => a.id.localeCompare(b.id));
+      return normalized;
+    }
+
+    function normalizePriority(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'normal') return 'medium';
+      return PRIORITY_PRESETS.includes(normalized) ? normalized : 'medium';
+    }
+
+    function cloneCatalog(catalog) {
+      return JSON.parse(JSON.stringify(catalog || { groups: [], intents: [] }));
+    }
+
+    async function apiJson(url, options, withAuth, silentUnauthorized) {
+      const requestOptions = { ...(options || {}) };
+      const needsAuth = withAuth !== false;
+      const headers = new Headers(requestOptions.headers || {});
+
+      if (needsAuth) {
+        if (!state.auth.token) {
+          handleUnauthorized(Boolean(silentUnauthorized));
+          throw new Error('unauthorized');
+        }
+        headers.set('Authorization', 'Bearer ' + state.auth.token);
+      }
+
+      requestOptions.headers = headers;
+      const response = await fetch(url, requestOptions);
+      const payload = await safeJson(response);
+      if (response.status === 401 && needsAuth) {
+        handleUnauthorized(Boolean(silentUnauthorized));
+      }
+      if (!response.ok) {
+        throw new Error(payload && payload.error ? payload.error : 'Request failed');
+      }
+      return payload;
+    }
+
+    async function safeJson(response) {
+      try {
+        return await response.json();
+      } catch (_err) {
+        return null;
+      }
+    }
+
+    function formatTime(isoDate) {
+      if (!isoDate) return '-';
+      const date = new Date(isoDate);
+      return date.toLocaleString();
+    }
+
+    function formatSec(value) {
+      if (typeof value !== 'number') return '-';
+      return value.toFixed(2);
+    }
+
+    function formatConfidence(value) {
+      if (typeof value !== 'number') return 'n/a';
+      return (value * 100).toFixed(1) + '%';
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/\n/g, ' ');
+    }
+
+    init();
+  </script>
+</body>
+</html>
