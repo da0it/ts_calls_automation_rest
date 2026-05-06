@@ -13,11 +13,16 @@ import (
 	"time"
 )
 
+// TranscriptionClient инкапсулирует HTTP-вызов сервиса транскрибации.
 type TranscriptionClient struct {
-	baseURL    string
+	// Базовый адрес transcription-service.
+	baseURL string
+
+	// HTTP-клиент, через который orchestrator отправляет запросы на транскрибацию.
 	httpClient *http.Client
 }
 
+// NewTranscriptionClient создает HTTP-клиент transcription-service и настраивает таймаут запроса.
 func NewTranscriptionClient(baseURL string) (*TranscriptionClient, error) {
 	if baseURL == "" {
 		return nil, fmt.Errorf("transcription service url is required")
@@ -42,6 +47,7 @@ func NewTranscriptionClient(baseURL string) (*TranscriptionClient, error) {
 	}, nil
 }
 
+// Segment описывает один сегмент распознанного диалога.
 type Segment struct {
 	Start   float64 `json:"start"`
 	End     float64 `json:"end"`
@@ -50,6 +56,7 @@ type Segment struct {
 	Text    string  `json:"text"`
 }
 
+// TranscriptionResponse представляет transcript в формате, который использует orchestrator.
 type TranscriptionResponse struct {
 	CallID      string                 `json:"call_id"`
 	Segments    []Segment              `json:"segments"`
@@ -57,11 +64,13 @@ type TranscriptionResponse struct {
 	Metadata    map[string]interface{} `json:"metadata"`
 }
 
+// Внутренняя структура HTTP-ответа transcription-сервиса.
 type transcribeHTTPResponse struct {
 	Transcript *TranscriptionResponse `json:"transcript"`
 	Error      string                 `json:"error,omitempty"`
 }
 
+// Transcribe читает локальный аудиофайл, отправляет его в transcription-service и возвращает transcript.
 func (c *TranscriptionClient) Transcribe(audioPath string) (*TranscriptionResponse, error) {
 	audioData, err := os.ReadFile(audioPath)
 	if err != nil {
@@ -81,6 +90,8 @@ func (c *TranscriptionClient) Transcribe(audioPath string) (*TranscriptionRespon
 	if err != nil {
 		return nil, fmt.Errorf("build transcription request: %w", err)
 	}
+
+	// Для HTTP API имя файла и call_id передаются через заголовки.
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Call-ID", callID)
 	req.Header.Set("X-Filename", filepath.Base(audioPath))

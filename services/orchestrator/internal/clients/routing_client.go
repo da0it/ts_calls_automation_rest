@@ -10,11 +10,16 @@ import (
 	"time"
 )
 
+// RoutingClient инкапсулирует HTTP-вызов router-service.
 type RoutingClient struct {
-	baseURL    string
+	// Базовый адрес router-service.
+	baseURL string
+
+	// HTTP-клиент для запроса маршрутизации.
 	httpClient *http.Client
 }
 
+// NewRoutingClient создает HTTP-клиент router-service.
 func NewRoutingClient(baseURL string) (*RoutingClient, error) {
 	if baseURL == "" {
 		return nil, fmt.Errorf("routing service url is required")
@@ -28,12 +33,14 @@ func NewRoutingClient(baseURL string) (*RoutingClient, error) {
 	}, nil
 }
 
+// RoutingRequest описывает payload запроса на маршрутизацию звонка.
 type RoutingRequest struct {
 	CallID       string    `json:"call_id"`
 	Segments     []Segment `json:"segments"`
 	SkipSpamGate bool      `json:"skip_spam_gate,omitempty"`
 }
 
+// RoutingResponse содержит итоговое решение router-service.
 type RoutingResponse struct {
 	IntentID         string             `json:"intent_id"`
 	IntentConfidence float64            `json:"intent_confidence"`
@@ -42,6 +49,7 @@ type RoutingResponse struct {
 	SpamCheck        *SpamCheckResponse `json:"spam_check,omitempty"`
 }
 
+// SpamCheckResponse описывает дополнительную spam-метаинформацию, если router ее вернул.
 type SpamCheckResponse struct {
 	Status         string  `json:"status"`
 	PredictedLabel string  `json:"predicted_label,omitempty"`
@@ -53,19 +61,23 @@ type SpamCheckResponse struct {
 	Backend        string  `json:"backend,omitempty"`
 }
 
+// Внутренняя структура HTTP-ответа router-service.
 type routeHTTPResponse struct {
 	Routing *RoutingResponse `json:"routing"`
 	Error   string           `json:"error,omitempty"`
 }
 
+// Route выполняет стандартную маршрутизацию без изменения доступного набора интентов.
 func (c *RoutingClient) Route(callID string, segments []Segment) (*RoutingResponse, error) {
 	return c.route(callID, segments, false)
 }
 
+// RouteSkippingSpam просит router-service исключить spam-интенты при повторной маршрутизации.
 func (c *RoutingClient) RouteSkippingSpam(callID string, segments []Segment) (*RoutingResponse, error) {
 	return c.route(callID, segments, true)
 }
 
+// route содержит общую логику HTTP-вызова и декодирования routing-ответа.
 func (c *RoutingClient) route(callID string, segments []Segment, skipSpamGate bool) (*RoutingResponse, error) {
 	requestBody := RoutingRequest{
 		CallID:       callID,

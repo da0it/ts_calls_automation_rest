@@ -7,23 +7,56 @@ import (
 	"strings"
 )
 
+// Config содержит все настройки сервиса создания тикетов.
 type Config struct {
-	ServerPort                    string
-	CORSAllowedOrigins            string
-	DatabaseURL                   string
-	PythonNERServiceURL           string
-	LLMRequestTimeoutSeconds      int
-	OllamaBaseURL                 string
-	OllamaModel                   string
-	OllamaTemperature             float64
-	OllamaNumPredict              int
-	TicketSystem                  string
-	SimpleOneEndpointURL          string
-	SimpleOneBearerToken          string
-	SimpleOneTimeoutSecs          int
+	// Блок настроек HTTP-сервера.
+	// Порт HTTP-сервера.
+	ServerPort string
+
+	// Список разрешенных origin для CORS, например: http://localhost:8000,http://localhost:3000.
+	CORSAllowedOrigins string
+
+	// Блок настройки базы данных.
+	DatabaseURL string
+
+	// Питон-сервисы.
+	// URL Python-сервиса извлечения сущностей.
+	PythonNERServiceURL string
+
+	// Блок настроек больших языковых моделей.
+	// Таймаут запроса к LLM в секундах.
+	LLMRequestTimeoutSeconds int
+
+	// Адрес Ollama API.
+	OllamaBaseURL string
+
+	// Название модели Ollama.
+	OllamaModel string
+
+	// Температура генерации. Чем выше температура, тем более вариативным может быть ответ.
+	OllamaTemperature float64
+
+	// Ограничение на количество генерируемых токенов.
+	OllamaNumPredict int
+
+	// Блок тикет-систем.
+	// Выбирает backend создания заявки.
+	TicketSystem string
+
+	// Адрес API SimpleOne.
+	SimpleOneEndpointURL string
+
+	// Токен авторизации SimpleOne.
+	SimpleOneBearerToken string
+
+	// Таймаут запроса к SimpleOne в секундах.
+	SimpleOneTimeoutSecs int
+
+	// PII-настройка: разрешает включать персональные данные в описание тикета.
 	TicketIncludePIIInDescription bool
 }
 
+// Load создает и возвращает заполненную структуру Config.
 func Load() *Config {
 	return &Config{
 		ServerPort:                    getEnv("SERVER_PORT", "8080"),
@@ -43,6 +76,7 @@ func Load() *Config {
 	}
 }
 
+// getEnv читает строковую переменную окружения. Если она пуста, возвращается значение по умолчанию.
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -50,6 +84,7 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// getEnvInt читает переменную окружения как int.
 func getEnvInt(key string, defaultValue int) int {
 	if value := os.Getenv(key); value != "" {
 		if intVal, err := strconv.Atoi(value); err == nil {
@@ -59,6 +94,7 @@ func getEnvInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
+// getEnvFloat читает переменную окружения как float64.
 func getEnvFloat(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
@@ -68,6 +104,7 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	return defaultValue
 }
 
+// getEnvBool читает boolean-переменную окружения.
 func getEnvBool(key string, defaultValue bool) bool {
 	value := strings.TrimSpace(strings.ToLower(getEnv(key, "")))
 	if value == "" {

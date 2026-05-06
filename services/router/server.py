@@ -20,6 +20,7 @@ logger = logging.getLogger("router-http")
 SPAM_INTENT_IDS = {"spam.call", "spam"}
 
 
+# Загружает словарь доступных интентов из JSON-конфига router.
 def load_intents(intents_path: Path) -> Dict[str, Dict[str, Any]]:
     with intents_path.open("r", encoding="utf-8") as file:
         payload = json.load(file)
@@ -28,6 +29,7 @@ def load_intents(intents_path: Path) -> Dict[str, Dict[str, Any]]:
     return payload
 
 
+# Приводит строковую переменную окружения к bool-значению.
 def _env_bool(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -35,6 +37,8 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+# Нормализует дополнительный spam payload, если анализатор вернул его в raw-данных.
+# В одноступенчатом контуре это поле обычно не требуется, но сохранено для совместимости UI и review-логики.
 def _spam_check_payload(raw: Dict[str, Any]) -> Dict[str, Any] | None:
     payload = raw.get("spam_decision") if isinstance(raw, dict) else {}
     if not isinstance(payload, dict) or not payload:
@@ -51,6 +55,7 @@ def _spam_check_payload(raw: Dict[str, Any]) -> Dict[str, Any] | None:
     }
 
 
+# Исключает спам из доступного набора, когда модуль управления просит повторную маршрутизацию после override.
 def _filter_intents_for_request(
     intents: Dict[str, Dict[str, Any]],
     *,
@@ -66,6 +71,7 @@ def _filter_intents_for_request(
     return filtered or intents
 
 
+# Сервис маршрутизации управляет доступным набором целей обращения и вызывает бизнес-анализатор звонка.
 class RoutingService:
     def __init__(
         self,
@@ -79,6 +85,7 @@ class RoutingService:
         self._lock = RLock()
         self.analyzer = analyzer
 
+    # Возвращает актуальный intents.json и при изменении файла перечитывает его на лету.
     def _get_intents(self) -> Dict[str, Dict[str, Any]]:
         try:
             current_mtime = self.intents_path.stat().st_mtime
@@ -100,6 +107,7 @@ class RoutingService:
             logger.info("reloaded intents config from %s (%d intents)", self.intents_path, len(self.intents))
             return self.intents
 
+    # Преобразует HTTP payload в внутренние сегменты звонка, запускает анализатор и возвращает результат маршрутизации
     def route_segments(
         self,
         *,
@@ -156,6 +164,7 @@ class RoutingService:
             payload["spam_check"] = spam_check
         return payload
 
+    # Возвращает административный статус модели и текущего набора целей обращения
     def get_model_status(self) -> Dict[str, Any]:
         intents = self._get_intents()
         tuned_status = self.analyzer.get_training_status(intents)
@@ -165,6 +174,7 @@ class RoutingService:
             "tuned_model": tuned_status,
         }
 
+    # Краткий health payload для проверки статуса сервиса.
     def health_status(self) -> Dict[str, Any]:
         return {
             "status": "healthy",
@@ -173,6 +183,7 @@ class RoutingService:
         }
 
 
+# Отправляет JSON-ответ клиенту HTTP API.
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Dict[str, Any]) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -182,6 +193,7 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Dict[s
     handler.wfile.write(body)
 
 
+# Читает JSON-тело запроса и гарантирует, что верхний уровень представлен объектом.
 def _read_json_request(handler: BaseHTTPRequestHandler) -> Dict[str, Any]:
     content_length = int(handler.headers.get("Content-Length", "0") or "0")
     body = handler.rfile.read(content_length) if content_length > 0 else b"{}"
@@ -193,8 +205,10 @@ def _read_json_request(handler: BaseHTTPRequestHandler) -> Dict[str, Any]:
     return payload
 
 
+# Фабрика HTTP-обработчика для пользовательского и административного API router-сервиса.
 def make_router_handler(service: RoutingService, admin_token: str):
     class RouterHandler(BaseHTTPRequestHandler):
+        # Обрабатывает health-check и административный статус модели.
         def do_GET(self) -> None:
             if self.path == "/health":
                 _json_response(self, HTTPStatus.OK, service.health_status())
@@ -208,6 +222,7 @@ def make_router_handler(service: RoutingService, admin_token: str):
 
             _json_response(self, HTTPStatus.NOT_FOUND, {"error": "not found"})
 
+        # Принимает HTTP-запрос на маршрутизацию звонка.
         def do_POST(self) -> None:
             if self.path != "/api/route":
                 _json_response(self, HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -227,6 +242,7 @@ def make_router_handler(service: RoutingService, admin_token: str):
                 logger.exception("routing request failed")
                 _json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": f"routing failed: {exc}"})
 
+        # Отвечает на preflight-запросы браузера.
         def do_OPTIONS(self) -> None:
             self.send_response(HTTPStatus.NO_CONTENT)
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -237,6 +253,7 @@ def make_router_handler(service: RoutingService, admin_token: str):
         def log_message(self, fmt: str, *args) -> None:
             logger.info("http %s - %s", self.address_string(), fmt % args)
 
+        # Проверяет Bearer token для административных запросов.
         def _authorize(self) -> bool:
             if not admin_token:
                 return True
@@ -252,6 +269,7 @@ def make_router_handler(service: RoutingService, admin_token: str):
     return RouterHandler
 
 
+# Точка входа HTTP-сервера router: читает конфигурацию, собирает анализатор и запускает API
 def serve() -> None:
     http_port = os.getenv("ROUTER_HTTP_PORT", "8081")
     model_name = os.getenv("ROUTER_MODEL_NAME", "ai-forever/ruBert-base")

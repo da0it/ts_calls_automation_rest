@@ -25,8 +25,10 @@ import (
 )
 
 func main() {
+	// Загрузка конфигурации.
 	cfg := config.Load()
 
+	// Подключение к БД.
 	db, err := sql.Open("postgres", cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
@@ -38,6 +40,7 @@ func main() {
 	}
 	log.Println("✓ Database connected")
 
+	// Инициализация сервисов хранения и запуск миграций.
 	userService := services.NewUserService(db)
 	if err := userService.Migrate(); err != nil {
 		log.Fatalf("Failed to run users migration: %v", err)
@@ -58,6 +61,7 @@ func main() {
 		log.Fatalf("Failed to seed admin: %v", err)
 	}
 
+	// Инициализация HTTP-клиентов зависимых сервисов.
 	transcriptionClient, err := clients.NewTranscriptionClient(cfg.TranscriptionServiceURL)
 	if err != nil {
 		log.Fatalf("Failed to initialize transcription client: %v", err)
@@ -82,6 +86,7 @@ func main() {
 	entityClient := clients.NewEntityClient(cfg.EntityServiceURL)
 	log.Println("✓ All clients initialized")
 
+	// Инициализация оркестратора, который управляет всем конвейером обработки звонка.
 	orchestrator := services.NewOrchestratorService(
 		transcriptionClient,
 		routingClient,
@@ -108,6 +113,7 @@ func main() {
 		filepath.Dir(cfg.RoutingFeedbackPath),
 	)
 
+	// Инициализация HTTP-обработчиков.
 	processHandler := handlers.NewProcessHandler(
 		orchestrator,
 		callQueueService,
@@ -119,9 +125,11 @@ func main() {
 	)
 	authHandler := handlers.NewAuthHandler(userService, cfg.JWTSecret, cfg.JWTExpiryHours, auditService)
 
+	// Middleware авторизации и проверки роли администратора.
 	authMw := middleware.AuthRequired(cfg.JWTSecret, userService)
 	adminMw := middleware.RequireRole(models.RoleAdmin)
 
+	// Сборка HTTP router.
 	router := setupRouter(processHandler, authHandler, authMw, adminMw, cfg)
 
 	httpAddr := ":" + cfg.HTTPPort
@@ -150,6 +158,7 @@ func main() {
 		}
 	}()
 
+	// Ожидание сигнала завершения и корректная остановка сервера.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -173,25 +182,33 @@ func setupRouter(
 	adminMw gin.HandlerFunc,
 	cfg *config.Config,
 ) *gin.Engine {
+	// В production режим Gin обычно переключается в release mode через переменную окружения.
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.DebugMode)
 	}
 
 	router := gin.Default()
+
+	// Базовые middleware восстановления, CORS и request id.
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware(cfg.CORSAllowedOrigins))
 	router.Use(requestIDMiddleware())
+
+	// Ограничение размера multipart-загрузки аудио до 100 МБ.
 	router.MaxMultipartMemory = 100 << 20
 
+	// Публичные маршруты.
 	router.GET("/", func(c *gin.Context) {
 		c.File("./web/index.html")
 	})
 	router.GET("/api/info", h.Root)
 	router.GET("/health", h.Health)
 
+	// Публичные маршруты аутентификации.
 	router.POST("/api/v1/auth/login", auth.Login)
 	router.POST("/api/v1/auth/register", auth.Register)
 
+	// Маршруты для аутентифицированных пользователей.
 	api := router.Group("/api/v1")
 	api.Use(authMw)
 	{
@@ -204,6 +221,7 @@ func setupRouter(
 		api.POST("/routing-feedback", h.SaveRoutingFeedback)
 		api.GET("/routing-model/status", h.GetRoutingModelStatus)
 
+		// Административные маршруты.
 		admin := api.Group("")
 		admin.Use(adminMw)
 		{
@@ -222,6 +240,7 @@ func setupRouter(
 	return router
 }
 
+// Создает CORS middleware на основе списка разрешенных origin.
 func corsMiddleware(allowedOriginsRaw string) gin.HandlerFunc {
 	allowedOrigins := parseAllowedOrigins(allowedOriginsRaw)
 	allowAny := allowedOrigins["*"]
@@ -247,6 +266,7 @@ func corsMiddleware(allowedOriginsRaw string) gin.HandlerFunc {
 	}
 }
 
+// Преобразует строку разрешенных origin в lookup-таблицу.
 func parseAllowedOrigins(raw string) map[string]bool {
 	out := make(map[string]bool)
 	for _, item := range strings.Split(raw, ",") {
@@ -259,12 +279,14 @@ func parseAllowedOrigins(raw string) map[string]bool {
 	return out
 }
 
+// Добавляет базовые security headers для HTTP-ответов.
 func setSecurityHeaders(c *gin.Context) {
 	c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
 	c.Writer.Header().Set("X-Frame-Options", "DENY")
 	c.Writer.Header().Set("Referrer-Policy", "no-referrer")
 }
 
+// Проставляет request id в контекст и HTTP-ответ.
 func requestIDMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := c.GetHeader("X-Request-ID")

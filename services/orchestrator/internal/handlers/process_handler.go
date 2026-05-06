@@ -9,6 +9,7 @@ import (
 	"orchestrator/internal/services"
 )
 
+// Список разрешенных аудиоформатов.
 var allowedAudioFormats = map[string]struct{}{
 	".mp3":  {},
 	".wav":  {},
@@ -17,6 +18,7 @@ var allowedAudioFormats = map[string]struct{}{
 	".ogg":  {},
 }
 
+// ProcessHandler объединяет HTTP-обработчики orchestration-контура и доступ к прикладным сервисам.
 type ProcessHandler struct {
 	orchestrator           *services.OrchestratorService
 	callQueueService       *services.CallQueueService
@@ -28,6 +30,7 @@ type ProcessHandler struct {
 	uploadDir              string
 }
 
+// NewProcessHandler создает основной HTTP-handler orchestrator и готовит каталог для загружаемых аудиофайлов.
 func NewProcessHandler(
 	orchestrator *services.OrchestratorService,
 	callQueueService *services.CallQueueService,
@@ -54,6 +57,7 @@ func NewProcessHandler(
 	}
 }
 
+// writeAudit — общий вспомогательный метод для записи события аудита.
 func (h *ProcessHandler) writeAudit(
 	c *gin.Context,
 	eventType string,
@@ -77,6 +81,7 @@ func (h *ProcessHandler) writeAudit(
 		}
 	}
 
+	// Собранное событие сохраняется в таблицу audit_events.
 	if err := h.auditService.LogEvent(services.AuditEvent{
 		RequestID:     c.GetString("request_id"),
 		ActorUserID:   actorUserID,

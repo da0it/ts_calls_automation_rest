@@ -10,30 +10,52 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config — структура, в которую собираются все настройки orchestrator-сервиса.
 type Config struct {
-	HTTPPort           string
-	HTTPTLSEnabled     bool
-	HTTPTLSCertFile    string
-	HTTPTLSKeyFile     string
+	// Порт HTTP-сервера orchestrator.
+	HTTPPort string
+
+	// Настройки TLS для HTTP-сервера.
+	HTTPTLSEnabled  bool
+	HTTPTLSCertFile string
+	HTTPTLSKeyFile  string
+
+	// Список разрешенных origin для браузерных запросов.
 	CORSAllowedOrigins string
 
-	// HTTP адреса сервисов
-	TranscriptionServiceURL          string
-	RoutingServiceURL                string
-	TicketServiceURL                 string
-	TicketRequestTimeoutSeconds      int
-	EntityServiceURL                 string
-	RoutingReviewConfidenceThreshold float64
-	RoutingIntentsPath               string
-	RoutingGroupsPath                string
-	RoutingFeedbackPath              string
-	RoutingAutoLearn                 bool
-	RoutingAutoLearnLimit            int
-	RouterAdminURL                   string
-	RouterAdminToken                 string
-	RouterAdminTimeoutSeconds        int
+	// HTTP-адреса зависимых сервисов.
+	TranscriptionServiceURL string
+	RoutingServiceURL       string
+	TicketServiceURL        string
 
-	// Auth / DB
+	// Таймаут HTTP-запроса к ticket-сервису.
+	TicketRequestTimeoutSeconds int
+
+	// Адрес сервиса извлечения сущностей.
+	EntityServiceURL string
+
+	// Порог уверенности маршрутизации, ниже которого звонок уходит на review.
+	RoutingReviewConfidenceThreshold float64
+
+	// Пути к конфигурационным файлам маршрутизации.
+	RoutingIntentsPath string
+	RoutingGroupsPath  string
+
+	// Путь к файлу обратной связи по маршрутизации.
+	RoutingFeedbackPath string
+
+	// Флаг автоматической передачи накопленного feedback в router.
+	RoutingAutoLearn bool
+
+	// Лимит количества накопленных записей feedback для auto-learn.
+	RoutingAutoLearnLimit int
+
+	// Настройки административного API router-сервиса.
+	RouterAdminURL            string
+	RouterAdminToken          string
+	RouterAdminTimeoutSeconds int
+
+	// Настройки аутентификации и базы данных.
 	DatabaseURL    string
 	JWTSecret      string
 	JWTExpiryHours int
@@ -41,6 +63,7 @@ type Config struct {
 	AdminPassword  string
 }
 
+// Load загружает переменные окружения и возвращает заполненную конфигурацию orchestrator.
 func Load() *Config {
 	_ = godotenv.Load()
 
@@ -79,6 +102,7 @@ func Load() *Config {
 	return cfg
 }
 
+// Печатает основные параметры orchestrator при запуске приложения.
 func logConfig(cfg *Config) {
 	log.Println("Orchestrator config loaded:")
 	items := []struct {
@@ -110,6 +134,7 @@ func logConfig(cfg *Config) {
 	}
 }
 
+// getEnv читает строковую переменную окружения и возвращает значение по умолчанию, если она пуста.
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -117,6 +142,7 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// getEnvInt читает переменную окружения как целое число.
 func getEnvInt(key string, defaultValue int) int {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
@@ -129,6 +155,7 @@ func getEnvInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
+// getEnvFloat читает переменную окружения как число с плавающей точкой.
 func getEnvFloat(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		parsed, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
@@ -139,6 +166,7 @@ func getEnvFloat(key string, defaultValue float64) float64 {
 	return defaultValue
 }
 
+// getEnvBool читает переменную окружения как bool.
 func getEnvBool(key string, defaultValue bool) bool {
 	value := strings.TrimSpace(strings.ToLower(getEnv(key, "")))
 	if value == "" {

@@ -20,9 +20,12 @@ import (
 	"ticket_module/pkg/config"
 )
 
+// Основная функция запуска ticket-сервиса.
 func main() {
+	// Загрузка конфигурации.
 	cfg := config.Load()
 
+	// Подключение к БД.
 	db, err := database.NewDatabase(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -30,7 +33,10 @@ func main() {
 	defer db.Close()
 	log.Println("Connected to database")
 
+	// Инициализация репозитория.
 	ticketRepo := database.NewTicketRepository(db)
+
+	// Инициализация клиентов к внешним сервисам.
 	pythonClient := clients.NewPythonClient(cfg.PythonNERServiceURL)
 	summarizer := services.NewLLMSummarizer(services.SummarizerConfig{
 		OllamaBaseURL:     cfg.OllamaBaseURL,
@@ -40,9 +46,11 @@ func main() {
 		RequestTimeout:    time.Duration(cfg.LLMRequestTimeoutSeconds) * time.Second,
 	})
 
+	// Выбор адаптера тикет-системы.
 	var ticketAdapter adapters.TicketSystemAdapter
 	switch cfg.TicketSystem {
 	case "mock":
+		// Mock-адаптер позволяет проверять пайплайн без реальной внешней интеграции.
 		ticketAdapter = adapters.NewMockAdapter()
 		log.Println("Using Mock ticket adapter")
 	case "simpleone":
@@ -60,6 +68,7 @@ func main() {
 		log.Printf("Unknown ticket system '%s', using mock", cfg.TicketSystem)
 	}
 
+	// Инициализация прикладного сервиса создания тикетов.
 	ticketService := services.NewTicketCreatorService(
 		pythonClient,
 		summarizer,
@@ -68,6 +77,7 @@ func main() {
 		cfg.TicketIncludePIIInDescription,
 	)
 
+	// Инициализация HTTP-обработчиков.
 	ticketHandler := handlers.NewTicketHandler(ticketService)
 	router := setupRouter(ticketHandler, cfg)
 
@@ -79,12 +89,15 @@ func main() {
 	}
 
 	log.Printf("Starting ticket HTTP service on %s", httpAddr)
+
+	// HTTP-сервер запускается в отдельной goroutine.
 	go func() {
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Failed to start HTTP server: %v", err)
 		}
 	}()
 
+	// Блок graceful shutdown.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -97,16 +110,23 @@ func main() {
 	}
 }
 
+// setupRouter создает и настраивает HTTP router ticket-сервиса.
 func setupRouter(h *handlers.TicketHandler, cfg *config.Config) *gin.Engine {
+	// В production режим Gin обычно переключается в release mode через переменную окружения.
 	if os.Getenv("GIN_MODE") == "" {
 		gin.SetMode(gin.DebugMode)
 	}
 
 	router := gin.Default()
+
+	// Базовые middleware восстановления и CORS.
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware(cfg.CORSAllowedOrigins))
+
+	// Health check.
 	router.GET("/health", h.Health)
 
+	// Основные HTTP-маршруты ticket-сервиса.
 	api := router.Group("/api")
 	{
 		api.POST("/tickets", h.CreateTicket)
@@ -119,7 +139,9 @@ func setupRouter(h *handlers.TicketHandler, cfg *config.Config) *gin.Engine {
 	return router
 }
 
+// corsMiddleware создает middleware для CORS. Без CORS браузер может заблокировать запрос.
 func corsMiddleware(allowedOriginsRaw string) gin.HandlerFunc {
+	// Строка разрешенных origin преобразуется в lookup-таблицу.
 	allowedOrigins := parseAllowedOrigins(allowedOriginsRaw)
 	allowAny := allowedOrigins["*"]
 
@@ -144,6 +166,7 @@ func corsMiddleware(allowedOriginsRaw string) gin.HandlerFunc {
 	}
 }
 
+// parseAllowedOrigins преобразует строку с разрешенными origin в lookup-таблицу.
 func parseAllowedOrigins(raw string) map[string]bool {
 	out := make(map[string]bool)
 	for _, item := range strings.Split(raw, ",") {
@@ -156,6 +179,7 @@ func parseAllowedOrigins(raw string) map[string]bool {
 	return out
 }
 
+// Добавляет базовые security headers в HTTP-ответ.
 func setSecurityHeaders(c *gin.Context) {
 	c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
 	c.Writer.Header().Set("X-Frame-Options", "DENY")

@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+# HTTP-сервер сервиса транскрибации.
+# Принимает сырые байты аудио в теле запроса, сохраняет их во временный файл,
+# запускает WhisperX pipeline и возвращает результат в JSON-формате.
+
 from __future__ import annotations
 
 import json
@@ -30,6 +34,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Читает переменную окружения и преобразует ее к bool-значению.
 def _env_bool(name: str, default: bool = False) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -37,11 +42,13 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+# Сервис транскрибации управляет прогревом WhisperX и обработкой HTTP-запросов на распознавание аудио.
 class TranscriptionService:
     def __init__(self) -> None:
         logger.info("Initializing TranscriptionService")
         self._maybe_warmup_whisperx()
 
+    # При включенном WHISPERX_PRELOAD заранее загружает модель, чтобы сократить задержку первого запроса.
     def _maybe_warmup_whisperx(self) -> None:
         preload = _env_bool("WHISPERX_PRELOAD", False)
         if not preload:
@@ -68,6 +75,7 @@ class TranscriptionService:
         except Exception as exc:
             logger.warning("WhisperX preload failed, continuing without warmup: %s", exc)
 
+    # Выполняет транскрибацию одного аудиофайла и возвращает JSON-совместимую структуру transcript.
     def transcribe_audio(self, *, audio: bytes, filename: str, call_id: str) -> dict:
         if not audio:
             raise ValueError("audio is required")
@@ -78,6 +86,7 @@ class TranscriptionService:
 
         temp_file = None
         try:
+            # Для WhisperX байты запроса сначала сохраняются во временный файл.
             with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp:
                 tmp.write(audio)
                 temp_file = tmp.name
@@ -111,14 +120,17 @@ class TranscriptionService:
             )
             return transcript
         finally:
+            # Временный файл удаляется вне зависимости от результата транскрибации.
             if temp_file and os.path.exists(temp_file):
                 os.unlink(temp_file)
                 logger.debug("Temporary audio file deleted for call_id=%s", call_id)
 
+    # Возвращает краткий статус сервиса для health-check.
     def health_status(self) -> dict:
         return {"status": "healthy", "service": "transcription"}
 
 
+# Формирует и отправляет HTTP-ответ в формате JSON.
 def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
@@ -128,14 +140,17 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict) 
     handler.wfile.write(body)
 
 
+# Фабрика HTTP-обработчика transcription-сервиса.
 def make_http_handler(service: TranscriptionService):
     class TranscriptionHTTPHandler(BaseHTTPRequestHandler):
+        # Возвращает состояние сервиса.
         def do_GET(self) -> None:
             if self.path == "/health":
                 _json_response(self, HTTPStatus.OK, service.health_status())
                 return
             _json_response(self, HTTPStatus.NOT_FOUND, {"error": "not found"})
 
+        # Принимает аудиоданные и запускает транскрибацию.
         def do_POST(self) -> None:
             if self.path != "/api/transcribe":
                 _json_response(self, HTTPStatus.NOT_FOUND, {"error": "not found"})
@@ -155,6 +170,7 @@ def make_http_handler(service: TranscriptionService):
                 logger.error("HTTP transcription failed: %s", exc, exc_info=True)
                 _json_response(self, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": f"Transcription failed: {exc}"})
 
+        # Отвечает на CORS preflight-запросы.
         def do_OPTIONS(self) -> None:
             self.send_response(HTTPStatus.NO_CONTENT)
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -168,6 +184,7 @@ def make_http_handler(service: TranscriptionService):
     return TranscriptionHTTPHandler
 
 
+# Точка входа HTTP-сервера транскрибации.
 def serve() -> None:
     host = os.getenv("HTTP_HOST", "0.0.0.0")
     http_port = int(os.getenv("TRANSCRIPTION_HTTP_PORT", "8083"))

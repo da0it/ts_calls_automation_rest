@@ -11,11 +11,16 @@ import (
 	"time"
 )
 
+// TicketClient инкапсулирует HTTP-вызов сервиса создания тикетов.
 type TicketClient struct {
-	baseURL    string
+	// Базовый адрес ticket-service.
+	baseURL string
+
+	// HTTP-клиент с таймаутом, достаточным для LLM и внешней интеграции.
 	httpClient *http.Client
 }
 
+// NewTicketClient создает HTTP-клиент ticket-service с заданным таймаутом.
 func NewTicketClient(baseURL string, timeout time.Duration) (*TicketClient, error) {
 	if baseURL == "" {
 		return nil, fmt.Errorf("ticket service url is required")
@@ -32,6 +37,7 @@ func NewTicketClient(baseURL string, timeout time.Duration) (*TicketClient, erro
 	}, nil
 }
 
+// TranscriptData описывает transcript в формате, который ожидает ticket-service.
 type TranscriptData struct {
 	CallID      string                 `json:"call_id"`
 	Segments    []Segment              `json:"segments"`
@@ -39,6 +45,7 @@ type TranscriptData struct {
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
+// RoutingData описывает routing-результат, передаваемый в ticket-service.
 type RoutingData struct {
 	IntentID         string  `json:"intent_id"`
 	IntentConfidence float64 `json:"intent_confidence"`
@@ -46,6 +53,7 @@ type RoutingData struct {
 	SuggestedGroup   string  `json:"suggested_group,omitempty"`
 }
 
+// CreateTicketRequest объединяет transcript, routing и извлеченные сущности в единый payload.
 type CreateTicketRequest struct {
 	Transcript TranscriptData `json:"transcript"`
 	Routing    RoutingData    `json:"routing"`
@@ -53,6 +61,7 @@ type CreateTicketRequest struct {
 	AudioURL   string         `json:"audio_url,omitempty"`
 }
 
+// TicketCreated описывает результат успешного создания тикета.
 type TicketCreated struct {
 	TicketID   string    `json:"ticket_id"`
 	ExternalID string    `json:"external_id"`
@@ -61,12 +70,14 @@ type TicketCreated struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
+// CreateTicketResponse соответствует HTTP-ответу ticket-service.
 type CreateTicketResponse struct {
 	Success bool           `json:"success"`
 	Ticket  *TicketCreated `json:"ticket,omitempty"`
 	Error   string         `json:"error,omitempty"`
 }
 
+// CreateTicket отправляет результаты предыдущих этапов pipeline в ticket-service и возвращает созданный тикет.
 func (c *TicketClient) CreateTicket(transcript *TranscriptionResponse, routing *RoutingResponse, entities *Entities) (*TicketCreated, error) {
 	body, err := json.Marshal(CreateTicketRequest{
 		Transcript: TranscriptData{
