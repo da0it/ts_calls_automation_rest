@@ -186,13 +186,13 @@ main() {
     "transcription" \
     "$ROOT_DIR" \
     "$ROOT_DIR/configs/transcription.env" \
-    "$TRANSCRIPTION_PYTHON $ROOT_DIR/services/transcription/grpc_server.py"
+    "$TRANSCRIPTION_PYTHON $ROOT_DIR/services/transcription/server.py"
 
   start_service \
     "router" \
     "$ROOT_DIR" \
     "$ROOT_DIR/configs/routing.env" \
-    "$ROUTER_PYTHON $ROOT_DIR/services/router/grpc_server.py"
+    "$ROUTER_PYTHON $ROOT_DIR/services/router/server.py"
 
   start_service \
     "entity_extraction" \
@@ -215,6 +215,8 @@ main() {
 
   log "All services are running."
   log "HTTP check: curl http://localhost:8000/health"
+  log "Router check: curl http://localhost:8081/health"
+  log "Transcription check: curl http://localhost:8083/health"
   log "E2E check: curl -X POST http://localhost:8000/api/v1/process-call -F \"audio=@$ROOT_DIR/services/transcription/dengi.mp3\""
   log "Press Ctrl+C to stop all services."
 
