@@ -6,17 +6,11 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 WHISPERX_VENV_DIR="${WHISPERX_VENV_DIR:-$HOME/whisperx_venv}"
 ENTITY_VENV_DIR="${ENTITY_VENV_DIR:-$ROOT_DIR/.venv}"
 ROUTER_VENV_DIR="${ROUTER_VENV_DIR:-$ROOT_DIR/services/router/venv}"
+CONFIGS_DIR="${CONFIGS_DIR:-$ROOT_DIR/configs}"
 
-# INSTALL_SYSTEM_DEPS=1 пытается установить системные пакеты через apt.
 INSTALL_SYSTEM_DEPS="${INSTALL_SYSTEM_DEPS:-0}"
-
-# PREPARE_ONLINE_MODE=1 временно включает онлайн-режим для первой загрузки моделей.
 PREPARE_ONLINE_MODE="${PREPARE_ONLINE_MODE:-1}"
-
-# PREPARE_ENTITY_NER_STARTUP=1 разрешает entity_extraction скачать и установить NER-модель при первом старте.
 PREPARE_ENTITY_NER_STARTUP="${PREPARE_ENTITY_NER_STARTUP:-1}"
-
-# CHECK_LOCAL_SERVICES=1 проверяет доступность PostgreSQL и Ollama.
 CHECK_LOCAL_SERVICES="${CHECK_LOCAL_SERVICES:-1}"
 
 log() {
@@ -80,6 +74,15 @@ pip_install() {
   "$pip_bin" install "$@"
 }
 
+write_if_missing() {
+  local path="$1"
+  local content="$2"
+  if [[ -f "$path" ]]; then
+    return
+  fi
+  printf '%s' "$content" >"$path"
+}
+
 set_env_value() {
   local env_file="$1"
   local key="$2"
@@ -96,6 +99,115 @@ set_env_value() {
   fi
 }
 
+ensure_configs() {
+  log "Ensuring local configs exist..."
+  mkdir -p "$CONFIGS_DIR"
+
+  write_if_missing "$CONFIGS_DIR/transcription.env" 'HTTP_HOST=0.0.0.0
+TRANSCRIPTION_HTTP_PORT=8083
+WHISPERX_MODEL=large-v3
+WHISPERX_LANGUAGE=ru
+WHISPERX_DEVICE=auto
+WHISPERX_COMPUTE_TYPE=int8
+WHISPERX_BATCH_SIZE=1
+WHISPERX_VAD_METHOD=silero
+WHISPERX_PRELOAD=1
+HF_HUB_OFFLINE=1
+TRANSFORMERS_OFFLINE=1
+HF_TOKEN=
+FFMPEG_BIN=/usr/bin/ffmpeg
+FFPROBE_BIN=/usr/bin/ffprobe
+'
+
+  write_if_missing "$CONFIGS_DIR/routing.env" 'ROUTER_HTTP_PORT=8081
+ROUTER_MODEL_NAME=ai-forever/ruRoberta-large
+ROUTER_MIN_CONFIDENCE=0.50
+ROUTER_INTENTS_PATH=./configs/routing_intents.json
+ROUTER_FEEDBACK_PATH=./configs/routing_feedback.jsonl
+ROUTER_BASE_DATASET_PATH=
+ROUTER_INCLUDE_INTENT_EXAMPLES=1
+ROUTER_TUNED_MODEL_PATH=./configs/router_tuned_head.pt
+ROUTER_ADMIN_TOKEN=
+ROUTER_FINETUNED_ENABLED=1
+ROUTER_FINETUNED_MODEL_PATH=./configs/router_finetuned_model
+ROUTER_FINETUNED_LR=2e-5
+ROUTER_FINETUNED_EPOCHS=50
+ROUTER_FINETUNED_BATCH_SIZE=8
+ROUTER_FINETUNED_MAX_LENGTH=512
+ROUTER_FINETUNED_WEIGHT_DECAY=0.01
+ROUTER_NLP_TEXT_MODE=tokens
+ROUTER_TRAIN_EPOCHS=50
+ROUTER_TRAIN_BATCH_SIZE=16
+ROUTER_TRAIN_LR=2e-5
+ROUTER_TRAIN_VAL_RATIO=0.2
+ROUTER_TRAIN_SEED=42
+HF_HUB_OFFLINE=1
+TRANSFORMERS_OFFLINE=1
+'
+
+  write_if_missing "$CONFIGS_DIR/entity.env" 'HF_HUB_OFFLINE=1
+TRANSFORMERS_OFFLINE=1
+ENTITY_USE_NER=1
+ENTITY_NER_DOWNLOAD_ON_STARTUP=0
+ENTITY_NER_INSTALL_ON_STARTUP=0
+'
+
+  write_if_missing "$CONFIGS_DIR/ticket.env" 'SERVER_PORT=8080
+CORS_ALLOWED_ORIGINS=http://localhost:8000,http://localhost:3000
+
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/tickets?sslmode=disable
+PYTHON_NER_SERVICE_URL=http://localhost:5001
+LLM_REQUEST_TIMEOUT_SECONDS=180
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=gemma3:4b
+OLLAMA_TEMPERATURE=0
+OLLAMA_NUM_PREDICT=48
+
+TICKET_SYSTEM=mock
+
+SIMPLEONE_ENDPOINT_URL=https://test-arenadata.simpleone.ru/v1/api/itsm_itsm/integrations/v1/ticket_ingest
+SIMPLEONE_BEARER_TOKEN=
+SIMPLEONE_TIMEOUT_SECONDS=30
+TICKET_INCLUDE_PII_IN_DESCRIPTION=1
+'
+
+  write_if_missing "$CONFIGS_DIR/orchestrator.env" 'HTTP_PORT=8000
+HTTP_TLS_ENABLED=0
+HTTP_TLS_CERT_FILE=
+HTTP_TLS_KEY_FILE=
+CORS_ALLOWED_ORIGINS=http://localhost:8000,http://localhost:3000
+
+TRANSCRIPTION_SERVICE_URL=http://localhost:8083
+ROUTING_SERVICE_URL=http://localhost:8081
+TICKET_SERVICE_URL=http://localhost:8080
+TICKET_REQUEST_TIMEOUT_SECONDS=300
+ENTITY_SERVICE_URL=http://localhost:5001
+TRANSCRIPTION_HTTP_TIMEOUT_SECONDS=2400
+ROUTING_REVIEW_CONFIDENCE_THRESHOLD=0.80
+ROUTING_INTENTS_PATH=../../configs/routing_intents.json
+ROUTING_GROUPS_PATH=../../configs/routing_groups.json
+ROUTING_FEEDBACK_PATH=../../configs/routing_feedback.jsonl
+ROUTING_AUTO_LEARN=1
+ROUTING_AUTO_LEARN_LIMIT=50
+ROUTER_ADMIN_URL=http://localhost:8081
+ROUTER_ADMIN_TIMEOUT_SECONDS=600
+ORCH_DELETE_UPLOADED_AUDIO_AFTER_PROCESS=1
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/tickets?sslmode=disable
+JWT_SECRET=change-me-in-production-32chars
+JWT_EXPIRY_HOURS=24
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+'
+
+  if [[ ! -f "$CONFIGS_DIR/routing_intents.json" ]]; then
+    cp "$ROOT_DIR/services/router/configs/intents.json" "$CONFIGS_DIR/routing_intents.json"
+  fi
+  if [[ ! -f "$CONFIGS_DIR/routing_groups.json" ]]; then
+    cp "$ROOT_DIR/services/router/configs/groups.json" "$CONFIGS_DIR/routing_groups.json"
+  fi
+  touch "$CONFIGS_DIR/routing_feedback.jsonl"
+}
+
 prepare_linux_env_files() {
   local ffmpeg_bin
   local ffprobe_bin
@@ -104,23 +216,23 @@ prepare_linux_env_files() {
   ffprobe_bin="$(command -v ffprobe)"
 
   log "Normalizing Linux env paths..."
-  set_env_value "$ROOT_DIR/configs/transcription.env" "FFMPEG_BIN" "$ffmpeg_bin"
-  set_env_value "$ROOT_DIR/configs/transcription.env" "FFPROBE_BIN" "$ffprobe_bin"
+  set_env_value "$CONFIGS_DIR/transcription.env" "FFMPEG_BIN" "$ffmpeg_bin"
+  set_env_value "$CONFIGS_DIR/transcription.env" "FFPROBE_BIN" "$ffprobe_bin"
 
   if [[ "$PREPARE_ONLINE_MODE" == "1" ]]; then
     log "Enabling online mode for the first model download..."
-    set_env_value "$ROOT_DIR/configs/transcription.env" "HF_HUB_OFFLINE" "0"
-    set_env_value "$ROOT_DIR/configs/transcription.env" "TRANSFORMERS_OFFLINE" "0"
-    set_env_value "$ROOT_DIR/configs/routing.env" "HF_HUB_OFFLINE" "0"
-    set_env_value "$ROOT_DIR/configs/routing.env" "TRANSFORMERS_OFFLINE" "0"
-    set_env_value "$ROOT_DIR/configs/entity.env" "HF_HUB_OFFLINE" "0"
-    set_env_value "$ROOT_DIR/configs/entity.env" "TRANSFORMERS_OFFLINE" "0"
+    set_env_value "$CONFIGS_DIR/transcription.env" "HF_HUB_OFFLINE" "0"
+    set_env_value "$CONFIGS_DIR/transcription.env" "TRANSFORMERS_OFFLINE" "0"
+    set_env_value "$CONFIGS_DIR/routing.env" "HF_HUB_OFFLINE" "0"
+    set_env_value "$CONFIGS_DIR/routing.env" "TRANSFORMERS_OFFLINE" "0"
+    set_env_value "$CONFIGS_DIR/entity.env" "HF_HUB_OFFLINE" "0"
+    set_env_value "$CONFIGS_DIR/entity.env" "TRANSFORMERS_OFFLINE" "0"
   fi
 
   if [[ "$PREPARE_ENTITY_NER_STARTUP" == "1" ]]; then
     log "Allowing entity_extraction to install and download NER assets on startup..."
-    set_env_value "$ROOT_DIR/configs/entity.env" "ENTITY_NER_DOWNLOAD_ON_STARTUP" "1"
-    set_env_value "$ROOT_DIR/configs/entity.env" "ENTITY_NER_INSTALL_ON_STARTUP" "1"
+    set_env_value "$CONFIGS_DIR/entity.env" "ENTITY_NER_DOWNLOAD_ON_STARTUP" "1"
+    set_env_value "$CONFIGS_DIR/entity.env" "ENTITY_NER_INSTALL_ON_STARTUP" "1"
   fi
 }
 
@@ -176,6 +288,7 @@ main() {
   require_cmd ffmpeg
   require_cmd ffprobe
 
+  ensure_configs
   prepare_linux_env_files
 
   log "Preparing Python venv for entity_extraction..."
@@ -204,7 +317,7 @@ main() {
   check_ollama
 
   log "Bootstrap complete."
-  log "Next: run the local stack launcher for the REST repo."
+  log "Next: run bash $ROOT_DIR/scripts/run_all.sh"
 }
 
 main "$@"
