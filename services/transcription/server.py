@@ -42,13 +42,13 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-# Сервис транскрибации управляет прогревом WhisperX и обработкой HTTP-запросов на распознавание аудио.
+# Сервис транскрибации управляет прогревом WhisperX и обработкой HTTP-запросов на распознавание аудио
 class TranscriptionService:
     def __init__(self) -> None:
         logger.info("Initializing TranscriptionService")
         self._maybe_warmup_whisperx()
 
-    # При включенном WHISPERX_PRELOAD заранее загружает модель, чтобы сократить задержку первого запроса.
+    # При включенном WHISPERX_PRELOAD заранее загружает модель, чтобы сократить задержку выполнения первого запроса
     def _maybe_warmup_whisperx(self) -> None:
         preload = _env_bool("WHISPERX_PRELOAD", False)
         if not preload:
@@ -75,7 +75,7 @@ class TranscriptionService:
         except Exception as exc:
             logger.warning("WhisperX preload failed, continuing without warmup: %s", exc)
 
-    # Выполняет транскрибацию одного аудиофайла и возвращает JSON-совместимую структуру transcript.
+    # Выполняет транскрибацию одного аудиофайла и возвращает JSON-совместимую структуру transcript
     def transcribe_audio(self, *, audio: bytes, filename: str, call_id: str) -> dict:
         if not audio:
             raise ValueError("audio is required")
@@ -120,7 +120,8 @@ class TranscriptionService:
             )
             return transcript
         finally:
-            # Временный файл удаляется вне зависимости от результата транскрибации.
+            
+            # Временный файл удаляется вне зависимости от результата транскрибации
             if temp_file and os.path.exists(temp_file):
                 os.unlink(temp_file)
                 logger.debug("Temporary audio file deleted for call_id=%s", call_id)

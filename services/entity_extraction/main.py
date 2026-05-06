@@ -72,13 +72,13 @@ async def startup_event():
     logger.info("Starting Entity Extraction Service...")
 
     # Чтение настроек запуска из переменных окружения
-    # Включает или отключает использование DeepPavlov NER.
+    # Включает или отключает использование DeepPavlov NER
     use_ner = _env_bool("ENTITY_USE_NER", True)
 
-    # Разрешает скачивание модели при запуске.
+    # Разрешает скачивание модели при запуске
     allow_download = _env_bool("ENTITY_NER_DOWNLOAD_ON_STARTUP", False)
 
-    # Разрешает установку зависимостей при запуске.
+    # Разрешает установку зависимостей при запуске
     allow_install = _env_bool("ENTITY_NER_INSTALL_ON_STARTUP", False)
 
     try:
