@@ -150,6 +150,12 @@ TRANSFORMERS_OFFLINE=1
 ENTITY_USE_NER=1
 ENTITY_NER_DOWNLOAD_ON_STARTUP=0
 ENTITY_NER_INSTALL_ON_STARTUP=0
+HTTP_PROXY=http://127.0.0.1:7897
+HTTPS_PROXY=http://127.0.0.1:7897
+NO_PROXY=localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
+http_proxy=http://127.0.0.1:7897
+https_proxy=http://127.0.0.1:7897
+no_proxy=localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1
 '
 
   write_if_missing "$CONFIGS_DIR/ticket.env" 'SERVER_PORT=8080
@@ -200,10 +206,22 @@ ADMIN_PASSWORD=admin123
 '
 
   if [[ ! -f "$CONFIGS_DIR/routing_intents.json" ]]; then
-    cp "$ROOT_DIR/services/router/configs/intents.json" "$CONFIGS_DIR/routing_intents.json"
+    if [[ -f "$ROOT_DIR/configs/routing_intents.json" ]]; then
+      cp "$ROOT_DIR/configs/routing_intents.json" "$CONFIGS_DIR/routing_intents.json"
+    elif [[ -f "$ROOT_DIR/services/router/configs/intents.json" ]]; then
+      cp "$ROOT_DIR/services/router/configs/intents.json" "$CONFIGS_DIR/routing_intents.json"
+    else
+      fail "routing_intents.json not found; put it into $CONFIGS_DIR"
+    fi
   fi
   if [[ ! -f "$CONFIGS_DIR/routing_groups.json" ]]; then
-    cp "$ROOT_DIR/services/router/configs/groups.json" "$CONFIGS_DIR/routing_groups.json"
+    if [[ -f "$ROOT_DIR/configs/routing_groups.json" ]]; then
+      cp "$ROOT_DIR/configs/routing_groups.json" "$CONFIGS_DIR/routing_groups.json"
+    elif [[ -f "$ROOT_DIR/services/router/configs/groups.json" ]]; then
+      cp "$ROOT_DIR/services/router/configs/groups.json" "$CONFIGS_DIR/routing_groups.json"
+    else
+      fail "routing_groups.json not found; put it into $CONFIGS_DIR"
+    fi
   fi
   touch "$CONFIGS_DIR/routing_feedback.jsonl"
 }
@@ -228,6 +246,13 @@ prepare_linux_env_files() {
     set_env_value "$CONFIGS_DIR/entity.env" "HF_HUB_OFFLINE" "0"
     set_env_value "$CONFIGS_DIR/entity.env" "TRANSFORMERS_OFFLINE" "0"
   fi
+
+  set_env_value "$CONFIGS_DIR/entity.env" "HTTP_PROXY" "${HTTP_PROXY:-http://127.0.0.1:7897}"
+  set_env_value "$CONFIGS_DIR/entity.env" "HTTPS_PROXY" "${HTTPS_PROXY:-http://127.0.0.1:7897}"
+  set_env_value "$CONFIGS_DIR/entity.env" "NO_PROXY" "${NO_PROXY:-localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1}"
+  set_env_value "$CONFIGS_DIR/entity.env" "http_proxy" "${HTTP_PROXY:-http://127.0.0.1:7897}"
+  set_env_value "$CONFIGS_DIR/entity.env" "https_proxy" "${HTTPS_PROXY:-http://127.0.0.1:7897}"
+  set_env_value "$CONFIGS_DIR/entity.env" "no_proxy" "${NO_PROXY:-localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,172.16.0.0/12,::1}"
 
   if [[ "$PREPARE_ENTITY_NER_STARTUP" == "1" ]]; then
     log "Allowing entity_extraction to install and download NER assets on startup..."

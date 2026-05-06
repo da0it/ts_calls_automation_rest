@@ -16,8 +16,8 @@ const (
 	ProcessStatusAwaitingRoutingReview = "awaiting_routing_review"
 	ProcessStatusSpamBlocked           = "spam_blocked"
 	ProcessStatusNoSpeech              = "no_speech"
-	spamIntentID                       = "spam.call"
-	legacySpamIntentID                 = "spam"
+	spamIntentID                       = "spam"
+	legacySpamIntentID                 = "spam.call"
 )
 
 // Структура сервиса, хранит клиентов ко всем этапам обработки

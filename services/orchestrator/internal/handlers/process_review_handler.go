@@ -14,8 +14,8 @@ import (
 
 // Константы spam-класса обращений
 const (
-	reviewSpamIntentID       = "spam.call"
-	reviewLegacySpamIntentID = "spam"
+	reviewSpamIntentID       = "spam"
+	reviewLegacySpamIntentID = "spam.call"
 )
 
 // Часть JSON-запроса, которая описывает результат проверки на спам.

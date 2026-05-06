@@ -338,7 +338,7 @@ func TestProcessCallIntegrationBlocksSingleStageSpamIntent(t *testing.T) {
 			},
 		},
 		&clients.RoutingResponse{
-			IntentID:         "spam.call",
+			IntentID:         "spam",
 			IntentConfidence: 0.96,
 			Priority:         "high",
 			SuggestedGroup:   "support",

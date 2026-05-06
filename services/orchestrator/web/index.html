@@ -640,7 +640,7 @@
         { id: 'support', title: 'Support', description: 'Поддержка, доступ в портал и первичная обработка неясных обращений.' }
       ],
       intents: [
-        { id: 'spam.call', title: 'Спам', default_group: 'support', priority: 'high', examples: ['это спам'] },
+        { id: 'spam', title: 'Спам', default_group: 'support', priority: 'high', examples: ['это спам'] },
         { id: 'consulting', title: 'Консультация', default_group: 'consulting', priority: 'medium', examples: ['нужна консультация'] },
         { id: 'cooperation', title: 'Сотрудничество', default_group: 'cooperation_department', priority: 'medium', examples: ['приглашаем на конференцию'] },
         { id: 'courses', title: 'Обучение', default_group: 'education_center', priority: 'medium', examples: ['хочу записаться на курс'] },
@@ -1552,7 +1552,7 @@
             <h3>Spam Override</h3>
             <div class="help-note">
               This call is currently blocked as spam. Use <strong>Accept AI</strong> to confirm a non-spam override.
-              The system will automatically rerun routing without the <code>spam.call</code> class and continue the pipeline.
+              The system will automatically rerun routing without the <code>spam</code> class and continue the pipeline.
               If the new routing confidence is low, the call will move to manual routing review.
             </div>
           </section>
