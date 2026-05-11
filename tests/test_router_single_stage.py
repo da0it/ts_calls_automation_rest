@@ -70,20 +70,20 @@ class RouterSingleStageTest(unittest.TestCase):
         analyzer = self._make_analyzer()
         router = _FakeFinetunedRouter(
             probs=torch.tensor([0.91, 0.09], dtype=torch.float32),
-            intent_ids=["spam.call", "consulting"],
+            intent_ids=["spam", "consulting"],
         )
         analyzer._finetuned_router = router
 
         allowed_intents = {
-            "spam.call": {"default_group": "support", "priority": "high"},
+            "spam": {"default_group": "support", "priority": "high"},
             "consulting": {"default_group": "consulting", "priority": "medium"},
             "misc.triage": {"default_group": "support", "priority": "medium"},
         }
 
         result = analyzer.analyze(self._call(), allowed_intents)
 
-        self.assertEqual(result.intent.intent_id, "spam.call")
-        self.assertIn("spam.call", router.seen_runtime_intents)
+        self.assertEqual(result.intent.intent_id, "spam")
+        self.assertIn("spam", router.seen_runtime_intents)
         self.assertNotIn("misc.triage", router.seen_runtime_intents)
         self.assertNotIn("spam_decision", result.raw)
         self.assertEqual(result.raw["mode"], "finetuned_only")
@@ -92,11 +92,11 @@ class RouterSingleStageTest(unittest.TestCase):
         analyzer = self._make_analyzer()
         analyzer._finetuned_router = _FakeFinetunedRouter(
             probs=torch.tensor([0.49, 0.51], dtype=torch.float32),
-            intent_ids=["spam.call", "consulting"],
+            intent_ids=["spam", "consulting"],
         )
 
         allowed_intents = {
-            "spam.call": {"default_group": "support", "priority": "high"},
+            "spam": {"default_group": "support", "priority": "high"},
             "consulting": {"default_group": "consulting", "priority": "medium"},
             "misc.triage": {"default_group": "support", "priority": "medium"},
         }

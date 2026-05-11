@@ -12,6 +12,14 @@ import joblib
 import torch
 
 RESERVED_FALLBACK_INTENT_ID = "misc.triage"
+SPAM_INTENT_ALIASES = {"spam", "spam.call"}
+
+
+def canonical_intent_id(value: Any) -> str:
+    raw = str(value).strip()
+    if raw in SPAM_INTENT_ALIASES:
+        return "spam"
+    return raw
 
 
 def parse_args() -> argparse.Namespace:
@@ -71,11 +79,11 @@ def load_intents(path: Path) -> List[str]:
     return sorted(intent_ids)
 
 
-def normalize_intent_ids(values: Iterable[Any]) -> List[str]:
+def normalize_intent_ids(values: Iterable[Any], *, canonicalize_aliases: bool = False) -> List[str]:
     out: List[str] = []
     seen = set()
     for item in values:
-        value = str(item).strip()
+        value = canonical_intent_id(item) if canonicalize_aliases else str(item).strip()
         if not value or value in seen:
             continue
         seen.add(value)
@@ -86,8 +94,8 @@ def normalize_intent_ids(values: Iterable[Any]) -> List[str]:
 def comparable_intent_ids(values: Iterable[Any], excluded: Set[str] | None = None) -> List[str]:
     blocked = {RESERVED_FALLBACK_INTENT_ID}
     if excluded:
-        blocked.update(str(value).strip() for value in excluded if str(value).strip())
-    return [value for value in normalize_intent_ids(values) if value not in blocked]
+        blocked.update(canonical_intent_id(value) for value in excluded if str(value).strip())
+    return [value for value in normalize_intent_ids(values, canonicalize_aliases=True) if value not in blocked]
 
 
 def extract_intent_ids_from_label_encoder(obj: Any) -> List[str]:
@@ -258,6 +266,12 @@ def main() -> int:
             f"missing_in_model={missing_in_model}, extra_in_model={extra_in_model}"
         )
 
+    artifact_intents = normalize_intent_ids(model_intents, canonicalize_aliases=True)
+    if len(artifact_intents) != len(model_intents):
+        raise RuntimeError(
+            "model intents collapse after alias normalization; please resolve duplicate spam labels before import"
+        )
+
     trained_at = str(args.trained_at).strip() or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     version_id = str(args.version_id).strip() or f"imported-{int(time.time())}"
     model_name = detect_model_name(source_dir, args.model_name)
@@ -265,7 +279,7 @@ def main() -> int:
 
     meta_payload = {
         "model_name": model_name,
-        "intent_ids": model_intents,
+        "intent_ids": artifact_intents,
         "trained_at": trained_at,
         "max_length": int(args.max_length),
         "import_source": str(source_dir),
@@ -278,7 +292,7 @@ def main() -> int:
         "version_id": version_id,
         "trained_at": trained_at,
         "model_name": model_name,
-        "intent_ids": model_intents,
+        "intent_ids": artifact_intents,
         "metrics": {},
         "dataset": {
             "import_source": str(source_dir),
@@ -288,7 +302,7 @@ def main() -> int:
         "finetuned_model": {
             "enabled": True,
             "model_path": artifact_model_path,
-            "intent_ids": model_intents,
+            "intent_ids": artifact_intents,
             "trained_at": trained_at,
             "max_length": int(args.max_length),
             "metrics": {},

@@ -57,7 +57,7 @@ def clean(value) -> str:
 def normalize_intent(value) -> str:
     raw = clean(value).lower()
     if raw in {"spam", "spam.call"}:
-        return "spam.call"
+        return "spam"
     return raw
 
 
@@ -395,7 +395,7 @@ def main():
         if args.spam_col and args.spam_col in headers:
             gold_binary = normalize_binary_spam(row.get(args.spam_col))
         if not gold_binary:
-            gold_binary = "spam" if gold_intent == "spam.call" else "non_spam"
+            gold_binary = "spam" if gold_intent == "spam" else "non_spam"
         audio_path = find_audio_path(row, csv_dir, audio_dir, audio_index)
 
         item = {
